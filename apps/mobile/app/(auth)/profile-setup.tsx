@@ -9,8 +9,9 @@ const SKILL_LEVELS: SkillLevel[] = ["beginner", "intermediate", "advanced", "pro
 const WEIGHT_CLASSES: WeightClass[] = ["flyweight", "bantamweight", "featherweight", "lightweight", "welterweight", "middleweight", "heavyweight"];
 
 export default function ProfileSetupScreen() {
-  const { phone } = useLocalSearchParams<{ phone: string }>();
-  const [name, setName] = useState("");
+  const { phone, email, name: passedName } = useLocalSearchParams<{ phone: string; email: string; name: string }>();
+
+  const [name, setName] = useState(passedName ?? "");
   const [city, setCity] = useState("");
   const [age, setAge] = useState("");
   const [experience, setExperience] = useState("");
@@ -44,6 +45,7 @@ export default function ProfileSetupScreen() {
           city,
           state: "Karnataka",
           phone: phone ?? `+91${Date.now()}`,
+          email: email ?? null,
           latitude: 12.9716,
           longitude: 77.5946,
           discipline: selectedDisciplines,
@@ -74,8 +76,8 @@ export default function ProfileSetupScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Set up your{"\n"}fighter profile</Text>
-      <Text style={styles.phone}>Phone: {phone}</Text>
+      <Text style={styles.title}>Complete your{"\n"}fighter profile</Text>
+      <Text style={styles.subtitle}>{phone} · {email}</Text>
 
       {error ? <Text style={styles.errorBox}>{error}</Text> : null}
 
@@ -134,7 +136,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0a0a0a" },
   content: { padding: 24, paddingBottom: 60 },
   title: { fontSize: 30, fontWeight: "800", color: "#fff", marginBottom: 8, lineHeight: 38 },
-  phone: { fontSize: 13, color: "#555", marginBottom: 24 },
+  subtitle: { fontSize: 13, color: "#555", marginBottom: 24 },
   label: { fontSize: 13, fontWeight: "600", color: "#888", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, marginTop: 20 },
   input: { backgroundColor: "#1a1a1a", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, borderWidth: 1, borderColor: "#2a2a2a" },
   row: { flexDirection: "row", gap: 12 },

@@ -26,11 +26,26 @@ fighterRouter.get("/", async (req, res) => {
 
 fighterRouter.get("/phone/:phone", async (req, res) => {
   const phone = decodeURIComponent(req.params.phone);
-
   const { data, error } = await supabase
     .from("fighters")
     .select("*")
     .eq("phone", phone)
+    .single();
+
+  if (error || !data) {
+    res.status(404).json({ fighter: null });
+    return;
+  }
+
+  res.json({ fighter: data });
+});
+
+fighterRouter.get("/email/:email", async (req, res) => {
+  const email = decodeURIComponent(req.params.email);
+  const { data, error } = await supabase
+    .from("fighters")
+    .select("*")
+    .eq("email", email)
     .single();
 
   if (error || !data) {
@@ -64,6 +79,7 @@ fighterRouter.post("/", async (req, res) => {
     .insert({
       name: body.name,
       phone: body.phone,
+      email: (body as any).email ?? null,
       city: body.city,
       state: body.state,
       latitude: body.latitude,
