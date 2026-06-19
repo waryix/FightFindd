@@ -24,6 +24,23 @@ fighterRouter.get("/", async (req, res) => {
   res.json({ fighters: data, count: data?.length ?? 0 });
 });
 
+fighterRouter.get("/phone/:phone", async (req, res) => {
+  const phone = decodeURIComponent(req.params.phone);
+
+  const { data, error } = await supabase
+    .from("fighters")
+    .select("*")
+    .eq("phone", phone)
+    .single();
+
+  if (error || !data) {
+    res.status(404).json({ fighter: null });
+    return;
+  }
+
+  res.json({ fighter: data });
+});
+
 fighterRouter.get("/:id", async (req, res) => {
   const { data, error } = await supabase
     .from("fighters")

@@ -1,7 +1,42 @@
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect, useState } from "react";
+import { View, ActivityIndicator } from "react-native";
+import { getSession } from "../src/store/session";
 
 export default function RootLayout() {
+  const [checking, setChecking] = useState(true);
+  const [hasSession, setHasSession] = useState(false);
+
+  useEffect(() => {
+    checkSession();
+  }, []);
+
+  useEffect(() => {
+    if (!checking && hasSession) {
+      router.replace("/(tabs)/discover");
+    }
+  }, [checking, hasSession]);
+
+  const checkSession = async () => {
+    try {
+      const fighterId = await getSession();
+      setHasSession(!!fighterId);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  if (checking) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#0a0a0a", alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator color="#e63946" size="large" />
+      </View>
+    );
+  }
+
   return (
     <>
       <StatusBar style="light" />

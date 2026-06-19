@@ -1,8 +1,215 @@
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
+import { useState, useEffect } from "react";
+
+type MatchStatus = "pending" | "accepted" | "declined" | "completed" | "cancelled";
+
+const STATUS_COLOR: Record<MatchStatus, string> = {
+  pending: "#f59e0b",
+  accepted: "#22c55e",
+  declined: "#e63946",
+  completed: "#3b82f6",
+  cancelled: "#666666",
+};
+
+const STATUS_BG: Record<MatchStatus, string> = {
+  pending: "#f59e0b22",
+  accepted: "#22c55e22",
+  declined: "#e6394622",
+  completed: "#3b82f622",
+  cancelled: "#66666622",
+};
+
 export default function MatchesScreen() {
-  return <View style={styles.container}><Text style={styles.text}>Matches — coming next</Text></View>;
+  const [matches, setMatches] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [tab, setTab] = useState<"received" | "sent">("received");
+
+  useEffect(() => {
+    fetchMatches();
+  }, []);
+
+  const fetchMatches = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch("http://localhost:4000/api/matches");
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error);
+        return;
+      }
+
+      setMatches(data.matches);
+    } catch (err: any) {
+      setError("Could not connect to server");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateStatus = async (id: string, status: MatchStatus) => {
+    try {
+      await fetch(`http://localhost:4000/api/matches/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      fetchMatches();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const renderMatch = ({ item }: { item: any }) => (
+    <View style={styles.card}>
+      <View style={styles.cardTop}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>FF</Text>
+        </View>
+        <View style={styles.matchInfo}>
+          <Text style={styles.discipline}>{item.discipline.replace("_", " ")}</Text>
+          <Text style={styles.location}>{item.proposed_location}</Text>
+          <Text style={styles.date}>
+            {new Date(item.proposed_date).toLocaleDateString("en-IN", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })}
+          </Text>
+        </View>
+        <View style={[styles.statusBadge, { backgroundColor: STATUS_BG[item.status as MatchStatus], borderColor: STATUS_COLOR[item.status as MatchStatus] + "55" }]}>
+          <Text style={[styles.statusText, { color: STATUS_COLOR[item.status as MatchStatus] }]}>
+            {item.status}
+          </Text>
+        </View>
+      </View>
+
+      {item.message ? (
+        <Text style={styles.message}>"{item.message}"</Text>
+      ) : null}
+
+      {item.status === "pending" && (
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={styles.declineBtn}
+            onPress={() => updateStatus(item.id, "declined")}
+          >
+            <Text style={styles.declineBtnText}>Decline</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.acceptBtn}
+            onPress={() => updateStatus(item.id, "accepted")}
+          >
+            <Text style={styles.acceptBtnText}>Accept</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {item.status === "accepted" && (
+        <TouchableOpacity
+          style={styles.completeBtn}
+          onPress={() => updateStatus(item.id, "completed")}
+        >
+          <Text style={styles.completeBtnText}>Mark as Completed</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Matches</Text>
+        <Text style={styles.headerSub}>Your sparring requests</Text>
+      </View>
+
+      <View style={styles.tabRow}>
+        <TouchableOpacity
+          style={[styles.tabBtn, tab === "received" && styles.tabBtnActive]}
+          onPress={() => setTab("received")}
+        >
+          <Text style={[styles.tabBtnText, tab === "received" && styles.tabBtnTextActive]}>
+            Received
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabBtn, tab === "sent" && styles.tabBtnActive]}
+          onPress={() => setTab("sent")}
+        >
+          <Text style={[styles.tabBtnText, tab === "sent" && styles.tabBtnTextActive]}>
+            Sent
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator color="#e63946" size="large" />
+          <Text style={styles.loadingText}>Loading matches...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.center}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={fetchMatches}>
+            <Text style={styles.retryBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : matches.length === 0 ? (
+        <View style={styles.center}>
+          <Text style={styles.emptyText}>No matches yet</Text>
+          <Text style={styles.emptySubText}>
+            Go to Discover and send a sparring request
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={matches}
+          keyExtractor={item => item.id}
+          renderItem={renderMatch}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
+    </View>
+  );
 }
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0a0a0a", alignItems: "center", justifyContent: "center" },
-  text: { color: "#888", fontSize: 16 },
+  container: { flex: 1, backgroundColor: "#0a0a0a" },
+  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12 },
+  headerTitle: { fontSize: 28, fontWeight: "800", color: "#fff" },
+  headerSub: { fontSize: 14, color: "#666", marginTop: 2 },
+  tabRow: { flexDirection: "row", marginHorizontal: 16, marginBottom: 16, backgroundColor: "#1a1a1a", borderRadius: 12, padding: 4 },
+  tabBtn: { flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: 10 },
+  tabBtnActive: { backgroundColor: "#e63946" },
+  tabBtnText: { fontSize: 14, fontWeight: "600", color: "#666" },
+  tabBtnTextActive: { color: "#fff" },
+  list: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
+  card: { backgroundColor: "#141414", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "#2a2a2a" },
+  cardTop: { flexDirection: "row", gap: 12, marginBottom: 12, alignItems: "flex-start" },
+  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#e63946", alignItems: "center", justifyContent: "center" },
+  avatarText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  matchInfo: { flex: 1, gap: 3 },
+  discipline: { fontSize: 15, fontWeight: "700", color: "#fff", textTransform: "capitalize" },
+  location: { fontSize: 13, color: "#888" },
+  date: { fontSize: 12, color: "#555" },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
+  statusText: { fontSize: 11, fontWeight: "700", textTransform: "capitalize" },
+  message: { fontSize: 13, color: "#666", fontStyle: "italic", marginBottom: 12, lineHeight: 18 },
+  actions: { flexDirection: "row", gap: 10 },
+  declineBtn: { flex: 1, backgroundColor: "#1a1a1a", borderRadius: 10, paddingVertical: 10, alignItems: "center", borderWidth: 1, borderColor: "#2a2a2a" },
+  declineBtnText: { color: "#888", fontSize: 14, fontWeight: "600" },
+  acceptBtn: { flex: 1, backgroundColor: "#22c55e22", borderRadius: 10, paddingVertical: 10, alignItems: "center", borderWidth: 1, borderColor: "#22c55e55" },
+  acceptBtnText: { color: "#22c55e", fontSize: 14, fontWeight: "600" },
+  completeBtn: { backgroundColor: "#3b82f622", borderRadius: 10, paddingVertical: 10, alignItems: "center", borderWidth: 1, borderColor: "#3b82f655" },
+  completeBtnText: { color: "#3b82f6", fontSize: 14, fontWeight: "600" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
+  loadingText: { color: "#666", fontSize: 14 },
+  errorText: { color: "#e63946", fontSize: 14 },
+  retryBtn: { backgroundColor: "#1a1a1a", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  retryBtnText: { color: "#fff", fontSize: 14 },
+  emptyText: { color: "#fff", fontSize: 18, fontWeight: "600" },
+  emptySubText: { color: "#666", fontSize: 14, textAlign: "center", paddingHorizontal: 32 },
 });

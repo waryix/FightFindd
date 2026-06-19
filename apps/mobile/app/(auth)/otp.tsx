@@ -29,10 +29,30 @@ export default function OtpScreen() {
     try {
       // MSG91 OTP verification goes here
       await new Promise(resolve => setTimeout(resolve, 1000));
-      // After verify, go to profile setup
-      router.replace("/(auth)/profile-setup");
+
+      // Check if fighter already exists with this phone
+      const response = await fetch(
+        `http://localhost:4000/api/fighters/phone/${encodeURIComponent(phone)}`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.fighter) {
+          // Fighter exists — save session and go straight to discover
+          const { saveSession } = await import("../../src/store/session");
+          await saveSession(data.fighter.id);
+          router.replace("/(tabs)/discover");
+          return;
+        }
+      }
+
+      // No fighter found — go to profile setup with phone
+      router.replace({
+        pathname: "/(auth)/profile-setup",
+        params: { phone },
+      });
     } catch (err) {
-      setError("Invalid OTP. Try again.");
+      setError("Something went wrong. Try again.");
     } finally {
       setLoading(false);
     }
@@ -41,9 +61,7 @@ export default function OtpScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Enter OTP</Text>
-      <Text style={styles.subtitle}>
-        Sent to {phone}
-      </Text>
+      <Text style={styles.subtitle}>Sent to {phone}</Text>
 
       <View style={styles.otpRow}>
         {otp.map((digit, idx) => (
@@ -77,59 +95,13 @@ export default function OtpScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0a0a0a",
-    paddingHorizontal: 24,
-    paddingTop: 48,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: "#ffffff",
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: "#888888",
-    marginBottom: 40,
-  },
-  otpRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 24,
-  },
-  otpInput: {
-    flex: 1,
-    backgroundColor: "#1a1a1a",
-    borderRadius: 12,
-    paddingVertical: 18,
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#ffffff",
-    borderWidth: 1,
-    borderColor: "#2a2a2a",
-  },
-  error: {
-    color: "#e63946",
-    fontSize: 13,
-    marginBottom: 12,
-  },
-  btn: {
-    backgroundColor: "#e63946",
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  btnText: {
-    color: "#ffffff",
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  resend: {
-    color: "#e63946",
-    textAlign: "center",
-    fontSize: 15,
-  },
+  container: { flex: 1, backgroundColor: "#0a0a0a", paddingHorizontal: 24, paddingTop: 48 },
+  title: { fontSize: 32, fontWeight: "800", color: "#ffffff", marginBottom: 8 },
+  subtitle: { fontSize: 15, color: "#888888", marginBottom: 40 },
+  otpRow: { flexDirection: "row", gap: 10, marginBottom: 24 },
+  otpInput: { flex: 1, backgroundColor: "#1a1a1a", borderRadius: 12, paddingVertical: 18, fontSize: 24, fontWeight: "700", color: "#ffffff", borderWidth: 1, borderColor: "#2a2a2a" },
+  error: { color: "#e63946", fontSize: 13, marginBottom: 12 },
+  btn: { backgroundColor: "#e63946", paddingVertical: 16, borderRadius: 12, alignItems: "center", marginBottom: 16 },
+  btnText: { color: "#ffffff", fontSize: 17, fontWeight: "700" },
+  resend: { color: "#e63946", textAlign: "center", fontSize: 15 },
 });
