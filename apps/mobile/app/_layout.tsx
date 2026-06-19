@@ -1,4 +1,4 @@
-import { Stack, router } from "expo-router";
+import { Stack, router, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
@@ -7,16 +7,17 @@ import { getSession } from "../src/store/session";
 export default function RootLayout() {
   const [checking, setChecking] = useState(true);
   const [hasSession, setHasSession] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     checkSession();
   }, []);
 
   useEffect(() => {
-    if (!checking && hasSession) {
-      router.replace("/(tabs)/discover");
-    }
-  }, [checking, hasSession]);
+  if (!checking && hasSession && pathname === "/") {
+    router.replace("/(tabs)/discover");
+  }
+}, [checking, hasSession, pathname]);
 
   const checkSession = async () => {
     try {

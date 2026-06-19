@@ -1,5 +1,8 @@
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useState, useEffect } from "react";
+import { getSession } from "../../src/store/session";
+import { useFocusEffect } from "@react-navigation/native";
+import { useCallback } from "react";
 
 type MatchStatus = "pending" | "accepted" | "declined" | "completed" | "cancelled";
 
@@ -25,23 +28,24 @@ export default function MatchesScreen() {
   const [error, setError] = useState("");
   const [tab, setTab] = useState<"received" | "sent">("received");
 
-  useEffect(() => {
-    fetchMatches();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchMatches();
+    }, [])
+  );
 
   const fetchMatches = async () => {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("http://localhost:4000/api/matches");
+      const fighterId = await getSession();
+      const response = await fetch(`http://localhost:4000/api/matches?fighter_id=${fighterId}`);
       const data = await response.json();
-
       if (!response.ok) {
-        setError(data.error);
+        setError(data.error || "Something went wrong");
         return;
       }
-
-      setMatches(data.matches);
+      setMatches(data.matches ?? data.requests ?? []);
     } catch (err: any) {
       setError("Could not connect to server");
     } finally {
@@ -62,61 +66,78 @@ export default function MatchesScreen() {
     }
   };
 
-  const renderMatch = ({ item }: { item: any }) => (
-    <View style={styles.card}>
-      <View style={styles.cardTop}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>FF</Text>
-        </View>
-        <View style={styles.matchInfo}>
-          <Text style={styles.discipline}>{item.discipline.replace("_", " ")}</Text>
-          <Text style={styles.location}>{item.proposed_location}</Text>
-          <Text style={styles.date}>
-            {new Date(item.proposed_date).toLocaleDateString("en-IN", {
-              day: "numeric",
-              month: "short",
-              year: "numeric",
-            })}
-          </Text>
-        </View>
-        <View style={[styles.statusBadge, { backgroundColor: STATUS_BG[item.status as MatchStatus], borderColor: STATUS_COLOR[item.status as MatchStatus] + "55" }]}>
-          <Text style={[styles.statusText, { color: STATUS_COLOR[item.status as MatchStatus] }]}>
-            {item.status}
-          </Text>
-        </View>
-      </View>
-
-      {item.message ? (
-        <Text style={styles.message}>"{item.message}"</Text>
-      ) : null}
-
-      {item.status === "pending" && (
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={styles.declineBtn}
-            onPress={() => updateStatus(item.id, "declined")}
-          >
-            <Text style={styles.declineBtnText}>Decline</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.acceptBtn}
-            onPress={() => updateStatus(item.id, "accepted")}
-          >
-            <Text style={styles.acceptBtnText}>Accept</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {item.status === "accepted" && (
-        <TouchableOpacity
-          style={styles.completeBtn}
-          onPress={() => updateStatus(item.id, "completed")}
-        >
-          <Text style={styles.completeBtnText}>Mark as Completed</Text>
-        </TouchableOpacity>
-      )}
-    </View>
+  const filteredMatches = matches.filter(item =>
+    tab === "received" ? item.is_received : !item.is_received
   );
+
+  const getInitials = (name?: string) => {
+    if (!name) return "?";
+    return name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
+  };
+
+  const renderMatch = ({ item }: { item: any }) => {
+    const otherName = tab === "received" ? item.sender_name : item.receiver_name;
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardTop}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{getInitials(otherName)}</Text>
+          </View>
+          <View style={styles.matchInfo}>
+            <Text style={styles.name}>{otherName ?? "Unknown"}</Text>
+            <Text style={styles.discipline}>{item.discipline?.replace(/_/g, " ")}</Text>
+            <Text style={styles.location}>{item.proposed_location}</Text>
+            <Text style={styles.date}>
+              {new Date(item.proposed_date).toLocaleDateString("en-IN", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })}
+            </Text>
+          </View>
+          <View style={[styles.statusBadge, {
+            backgroundColor: STATUS_BG[item.status as MatchStatus],
+            borderColor: STATUS_COLOR[item.status as MatchStatus] + "55"
+          }]}>
+            <Text style={[styles.statusText, { color: STATUS_COLOR[item.status as MatchStatus] }]}>
+              {item.status}
+            </Text>
+          </View>
+        </View>
+
+        {item.message ? (
+          <Text style={styles.message}>"{item.message}"</Text>
+        ) : null}
+
+        {item.status === "pending" && tab === "received" && (
+          <View style={styles.actions}>
+            <TouchableOpacity
+              style={styles.declineBtn}
+              onPress={() => updateStatus(item.id, "declined")}
+            >
+              <Text style={styles.declineBtnText}>Decline</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.acceptBtn}
+              onPress={() => updateStatus(item.id, "accepted")}
+            >
+              <Text style={styles.acceptBtnText}>Accept</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {item.status === "accepted" && (
+          <TouchableOpacity
+            style={styles.completeBtn}
+            onPress={() => updateStatus(item.id, "completed")}
+          >
+            <Text style={styles.completeBtnText}>Mark as Completed</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -156,16 +177,18 @@ export default function MatchesScreen() {
             <Text style={styles.retryBtnText}>Retry</Text>
           </TouchableOpacity>
         </View>
-      ) : matches.length === 0 ? (
+      ) : filteredMatches.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyText}>No matches yet</Text>
+          <Text style={styles.emptyText}>No {tab} requests</Text>
           <Text style={styles.emptySubText}>
-            Go to Discover and send a sparring request
+            {tab === "received"
+              ? "No one has sent you a sparring request yet"
+              : "Go to Discover and send a sparring request"}
           </Text>
         </View>
       ) : (
         <FlatList
-          data={matches}
+          data={filteredMatches}
           keyExtractor={item => item.id}
           renderItem={renderMatch}
           contentContainerStyle={styles.list}
@@ -192,7 +215,8 @@ const styles = StyleSheet.create({
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#e63946", alignItems: "center", justifyContent: "center" },
   avatarText: { color: "#fff", fontSize: 14, fontWeight: "700" },
   matchInfo: { flex: 1, gap: 3 },
-  discipline: { fontSize: 15, fontWeight: "700", color: "#fff", textTransform: "capitalize" },
+  name: { fontSize: 15, fontWeight: "700", color: "#fff" },
+  discipline: { fontSize: 13, color: "#aaa", textTransform: "capitalize" },
   location: { fontSize: 13, color: "#888" },
   date: { fontSize: 12, color: "#555" },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },

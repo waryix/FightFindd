@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useState, useEffect } from "react";
+import { router } from "expo-router";
 import type { Fighter, Discipline, SkillLevel } from "@repo/types/fighter";
 
 const DISCIPLINES: Discipline[] = ["boxing", "mma", "kickboxing", "muay_thai", "bjj", "wrestling"];
@@ -49,6 +50,18 @@ export default function DiscoverScreen() {
     }
   };
 
+  const handleRequestSparring = (fighter: any) => {
+    router.push({
+      pathname: "/(tabs)/request/[receiverId]",
+      params: {
+        receiverId: fighter.id,
+        receiverName: fighter.name,
+        receiverSkill: fighter.skill_level,
+        receiverDisciplines: JSON.stringify(fighter.discipline),
+      },
+    });
+  };
+
   const renderFighter = ({ item }: { item: any }) => (
     <View style={styles.card}>
       <View style={styles.cardTop}>
@@ -83,7 +96,10 @@ export default function DiscoverScreen() {
 
       {item.bio ? <Text style={styles.bio} numberOfLines={2}>{item.bio}</Text> : null}
 
-      <TouchableOpacity style={styles.requestBtn}>
+      <TouchableOpacity
+        style={styles.requestBtn}
+        onPress={() => handleRequestSparring(item)}
+      >
         <Text style={styles.requestBtnText}>Request Sparring</Text>
       </TouchableOpacity>
     </View>
@@ -105,16 +121,10 @@ export default function DiscoverScreen() {
           contentContainerStyle={styles.filterList}
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={[
-                styles.filterChip,
-                (item === "all" ? disciplineFilter === null : disciplineFilter === item) && styles.filterChipActive
-              ]}
+              style={[styles.filterChip, (item === "all" ? disciplineFilter === null : disciplineFilter === item) && styles.filterChipActive]}
               onPress={() => setDisciplineFilter(item === "all" ? null : item as Discipline)}
             >
-              <Text style={[
-                styles.filterChipText,
-                (item === "all" ? disciplineFilter === null : disciplineFilter === item) && styles.filterChipTextActive
-              ]}>
+              <Text style={[styles.filterChipText, (item === "all" ? disciplineFilter === null : disciplineFilter === item) && styles.filterChipTextActive]}>
                 {item === "all" ? "All" : item.replace("_", " ")}
               </Text>
             </TouchableOpacity>
@@ -131,16 +141,10 @@ export default function DiscoverScreen() {
           contentContainerStyle={styles.filterList}
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={[
-                styles.filterChip,
-                (item === "all" ? skillFilter === null : skillFilter === item) && styles.filterChipActive
-              ]}
+              style={[styles.filterChip, (item === "all" ? skillFilter === null : skillFilter === item) && styles.filterChipActive]}
               onPress={() => setSkillFilter(item === "all" ? null : item as SkillLevel)}
             >
-              <Text style={[
-                styles.filterChipText,
-                (item === "all" ? skillFilter === null : skillFilter === item) && styles.filterChipTextActive
-              ]}>
+              <Text style={[styles.filterChipText, (item === "all" ? skillFilter === null : skillFilter === item) && styles.filterChipTextActive]}>
                 {item === "all" ? "All levels" : item}
               </Text>
             </TouchableOpacity>
