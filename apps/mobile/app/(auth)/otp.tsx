@@ -2,13 +2,13 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator 
 import { router, useLocalSearchParams } from "expo-router";
 import { useState, useRef } from "react";
 import { saveSession } from "../../src/store/session";
+import { supabase } from "../../src/services/supabase";
 
 export default function OtpScreen() {
-  const { phone, email, name, otpMethod, mode, fighterId } = useLocalSearchParams<{
+  const { phone, email, name, mode, fighterId } = useLocalSearchParams<{
     phone: string;
     email: string;
     name: string;
-    otpMethod: string;
     mode: "login" | "signup";
     fighterId: string;
   }>();
@@ -26,8 +26,6 @@ export default function OtpScreen() {
     if (!val && idx > 0) inputs.current[idx - 1]?.focus();
   };
 
-  const sentTo = otpMethod === "phone" ? phone : email;
-
   const handleVerify = async () => {
     const code = otp.join("");
     if (code.length !== 6) {
@@ -39,33 +37,48 @@ export default function OtpScreen() {
     setError("");
 
     try {
-      // Simulate OTP verification — replace with real verification later
-      await new Promise(resolve => setTimeout(resolve, 800));
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email,
+        token: code,
+        type: "email",
+      });
+
+      if (verifyError) {
+        setError(verifyError.message);
+        return;
+      }
 
       if (mode === "login") {
-        // Login — fighter already exists, fighterId passed from login screen
         await saveSession(fighterId);
         router.replace("/(tabs)/discover");
       } else {
-        // Signup — go to profile setup with all details
         router.replace({
           pathname: "/(auth)/profile-setup",
           params: { phone, email, name },
         });
       }
-    } catch (err) {
+    } catch (err: any) {
       setError("Something went wrong. Try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleResend = async () => {
+    setError("");
+    setOtp(["", "", "", "", "", ""]);
+    await supabase.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: mode === "signup" },
+    });
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Enter OTP</Text>
       <Text style={styles.subtitle}>
-        Sent via {otpMethod === "phone" ? "SMS" : "email"} to{"\n"}
-        <Text style={styles.sentTo}>{sentTo}</Text>
+        Sent to your email{"\n"}
+        <Text style={styles.sentTo}>{email}</Text>
       </Text>
 
       <View style={styles.otpRow}>
@@ -99,13 +112,11 @@ export default function OtpScreen() {
         }
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.back()}>
+      <TouchableOpacity onPress={handleResend}>
         <Text style={styles.resend}>Resend OTP</Text>
       </TouchableOpacity>
 
-      <Text style={styles.hint}>
-        For testing, enter any 6 digits
-      </Text>
+      <Text style={styles.hint}>Check your spam folder if you don't see it</Text>
     </View>
   );
 }
@@ -122,6 +133,6 @@ const styles = StyleSheet.create({
   btn: { backgroundColor: "#e63946", paddingVertical: 16, borderRadius: 12, alignItems: "center", marginBottom: 16 },
   btnDisabled: { opacity: 0.4 },
   btnText: { color: "#ffffff", fontSize: 17, fontWeight: "700" },
-  resend: { color: "#e63946", textAlign: "center", fontSize: 15, marginBottom: 16 },
-  hint: { color: "#333", textAlign: "center", fontSize: 12, marginTop: 8 },
+  resend: { color: "#e63946", textAlign: "center", fontSize: 15, marginBottom: 12 },
+  hint: { color: "#333", textAlign: "center", fontSize: 12 },
 });

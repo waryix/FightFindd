@@ -36,36 +36,43 @@ export default function ProfileSetupScreen() {
     setLoading(true);
     setError("");
 
+    const payload = {
+      name,
+      city,
+      state: "Karnataka",
+      phone: phone ?? `+91${Date.now()}`,
+      email: email ?? null,
+      latitude: 12.9716,
+      longitude: 77.5946,
+      discipline: selectedDisciplines,
+      skillLevel,
+      weightClass,
+      ageYears: parseInt(age) || 0,
+      yearsExperience: parseInt(experience) || 0,
+    };
+
+    console.log("Sending payload:", JSON.stringify(payload));
+
     try {
       const response = await fetch("http://localhost:4000/api/fighters", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          city,
-          state: "Karnataka",
-          phone: phone ?? `+91${Date.now()}`,
-          email: email ?? null,
-          latitude: 12.9716,
-          longitude: 77.5946,
-          discipline: selectedDisciplines,
-          skillLevel,
-          weightClass,
-          ageYears: parseInt(age) || 0,
-          yearsExperience: parseInt(experience) || 0,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
+      console.log("Response status:", response.status);
+      console.log("Response data:", JSON.stringify(data));
 
       if (!response.ok) {
-        setError(`Error: ${data.error}`);
+        setError(`Error ${response.status}: ${data.error ?? JSON.stringify(data)}`);
         return;
       }
 
       await saveSession(data.fighter.id);
       router.replace("/(tabs)/discover");
     } catch (err: any) {
+      console.log("Network error:", err);
       setError(`Network error: ${err.message}`);
     } finally {
       setLoading(false);

@@ -1,51 +1,55 @@
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator } from "react-native";
 import { router } from "expo-router";
 import { useState } from "react";
+import { supabase } from "../../src/services/supabase";
 
 export default function LoginScreen() {
-  const [identifier, setIdentifier] = useState("");
-  const [otpMethod, setOtpMethod] = useState<"phone" | "email">("phone");
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const isPhone = /^\d{10}$/.test(identifier);
-  const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
-  const isValid = isPhone || isEmail;
+  const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   const handleContinue = async () => {
-    if (!isValid) return;
+    if (!isValidEmail) return;
     setLoading(true);
     setError("");
 
     try {
-      // Check if fighter exists
-      const endpoint = isPhone
-        ? `http://localhost:4000/api/fighters/phone/${encodeURIComponent(`+91${identifier}`)}`
-        : `http://localhost:4000/api/fighters/email/${encodeURIComponent(identifier)}`;
-
-      const response = await fetch(endpoint);
+      // Check if fighter exists with this email
+      const response = await fetch(
+        `http://localhost:4000/api/fighters/email/${encodeURIComponent(email)}`
+      );
       const data = await response.json();
 
       if (!data.fighter) {
-        setError("No account found. Please sign up first.");
+        setError("No account found with this email. Please sign up first.");
         setLoading(false);
         return;
       }
 
-      // Simulate OTP send
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Send OTP via Supabase
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: false },
+      });
+
+      if (otpError) {
+        setError(otpError.message);
+        return;
+      }
 
       router.push({
         pathname: "/(auth)/otp",
         params: {
-          phone: isPhone ? `+91${identifier}` : data.fighter.phone,
-          email: isEmail ? identifier : data.fighter.email,
-          otpMethod: isPhone ? "phone" : "email",
+          email,
+          phone: data.fighter.phone,
+          otpMethod: "email",
           mode: "login",
           fighterId: data.fighter.id,
         },
       });
-    } catch (err) {
+    } catch (err: any) {
       setError("Could not connect to server. Try again.");
     } finally {
       setLoading(false);
@@ -55,40 +59,35 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Welcome{"\n"}back</Text>
-      <Text style={styles.subtitle}>Log in to your FightFind account</Text>
+      <Text style={styles.subtitle}>Log in with your email address</Text>
 
       {error ? <Text style={styles.errorBox}>{error}</Text> : null}
 
-      <Text style={styles.label}>Phone number or Email</Text>
+      <Text style={styles.label}>Email Address</Text>
       <TextInput
         style={styles.input}
-        placeholder="9876543210 or arjun@gmail.com"
+        placeholder="arjun@gmail.com"
         placeholderTextColor="#444"
         keyboardType="email-address"
         autoCapitalize="none"
-        value={identifier}
-        onChangeText={val => {
-          setIdentifier(val);
-          setOtpMethod(/^\d/.test(val) ? "phone" : "email");
-        }}
+        value={email}
+        onChangeText={setEmail}
         color="#fff"
         autoFocus
       />
 
-      {isValid && (
+      {isValidEmail && (
         <View style={styles.methodHint}>
           <Text style={styles.methodHintText}>
-            {isPhone
-              ? `We'll send an OTP to +91${identifier}`
-              : `We'll send an OTP to ${identifier}`}
+            A 6-digit OTP will be sent to {email}
           </Text>
         </View>
       )}
 
       <TouchableOpacity
-        style={[styles.btn, !isValid && styles.btnDisabled]}
+        style={[styles.btn, !isValidEmail && styles.btnDisabled]}
         onPress={handleContinue}
-        disabled={!isValid || loading}
+        disabled={!isValidEmail || loading}
       >
         {loading
           ? <ActivityIndicator color="#fff" />

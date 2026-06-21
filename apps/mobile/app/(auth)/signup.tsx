@@ -1,18 +1,18 @@
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
 import { router } from "expo-router";
 import { useState } from "react";
+import { supabase } from "../../src/services/supabase";
 
 export default function SignUpScreen() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [otpMethod, setOtpMethod] = useState<"phone" | "email" | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const isValidPhone = phone.length === 10;
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  const isValid = name.trim().length > 0 && isValidPhone && isValidEmail && otpMethod !== null;
+  const isValid = name.trim().length > 0 && isValidPhone && isValidEmail;
 
   const handleContinue = async () => {
     if (!isValid) return;
@@ -20,8 +20,20 @@ export default function SignUpScreen() {
     setError("");
 
     try {
-      // Simulate OTP send — replace with MSG91 or email OTP later
-      await new Promise(resolve => setTimeout(resolve, 800));
+      console.log("Sending OTP to:", email);
+
+      const { data, error: otpError } = await supabase.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: true },
+      });
+
+      console.log("Supabase response:", JSON.stringify(data));
+      console.log("Supabase error:", JSON.stringify(otpError));
+
+      if (otpError) {
+        setError(otpError.message || JSON.stringify(otpError));
+        return;
+      }
 
       router.push({
         pathname: "/(auth)/otp",
@@ -29,12 +41,13 @@ export default function SignUpScreen() {
           phone: `+91${phone}`,
           email,
           name,
-          otpMethod,
+          otpMethod: "email",
           mode: "signup",
         },
       });
-    } catch (err) {
-      setError("Failed to send OTP. Try again.");
+    } catch (err: any) {
+      console.log("Caught error:", err);
+      setError(err.message || "Something went wrong. Try again.");
     } finally {
       setLoading(false);
     }
@@ -61,7 +74,7 @@ export default function SignUpScreen() {
       <Text style={styles.label}>Mobile Number</Text>
       <View style={styles.phoneRow}>
         <View style={styles.countryCode}>
-          <Text style={styles.countryCodeText}>???? +91</Text>
+          <Text style={styles.countryCodeText}>+91</Text>
         </View>
         <TextInput
           style={styles.phoneInput}
@@ -87,25 +100,13 @@ export default function SignUpScreen() {
         color="#fff"
       />
 
-      <Text style={styles.label}>Verify via</Text>
-      <View style={styles.methodRow}>
-        <TouchableOpacity
-          style={[styles.methodBtn, otpMethod === "phone" && styles.methodBtnActive]}
-          onPress={() => setOtpMethod("phone")}
-        >
-          <Text style={[styles.methodBtnText, otpMethod === "phone" && styles.methodBtnTextActive]}>
-            SMS to +91{phone || "XXXXXXXXXX"}
+      {isValidEmail && (
+        <View style={styles.otpNote}>
+          <Text style={styles.otpNoteText}>
+            A 6-digit OTP will be sent to {email}
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.methodBtn, otpMethod === "email" && styles.methodBtnActive]}
-          onPress={() => setOtpMethod("email")}
-        >
-          <Text style={[styles.methodBtnText, otpMethod === "email" && styles.methodBtnTextActive]}>
-            Email to {email || "your@email.com"}
-          </Text>
-        </TouchableOpacity>
-      </View>
+        </View>
+      )}
 
       <TouchableOpacity
         style={[styles.btn, !isValid && styles.btnDisabled]}
@@ -114,7 +115,7 @@ export default function SignUpScreen() {
       >
         {loading
           ? <ActivityIndicator color="#fff" />
-          : <Text style={styles.btnText}>Send OTP</Text>
+          : <Text style={styles.btnText}>Send OTP to Email</Text>
         }
       </TouchableOpacity>
 
@@ -133,15 +134,12 @@ const styles = StyleSheet.create({
   label: { fontSize: 12, fontWeight: "600", color: "#555", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, marginTop: 20 },
   input: { backgroundColor: "#1a1a1a", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, borderWidth: 1, borderColor: "#2a2a2a" },
   phoneRow: { flexDirection: "row", gap: 10 },
-  countryCode: { backgroundColor: "#1a1a1a", borderRadius: 12, paddingHorizontal: 14, justifyContent: "center", borderWidth: 1, borderColor: "#2a2a2a" },
-  countryCodeText: { color: "#fff", fontSize: 15 },
+  countryCode: { backgroundColor: "#1a1a1a", borderRadius: 12, paddingHorizontal: 16, justifyContent: "center", borderWidth: 1, borderColor: "#2a2a2a" },
+  countryCodeText: { color: "#fff", fontSize: 15, fontWeight: "600" },
   phoneInput: { flex: 1, backgroundColor: "#1a1a1a", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, borderWidth: 1, borderColor: "#2a2a2a" },
-  methodRow: { gap: 10 },
-  methodBtn: { backgroundColor: "#1a1a1a", borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16, borderWidth: 1, borderColor: "#2a2a2a" },
-  methodBtnActive: { borderColor: "#e63946", backgroundColor: "#e6394611" },
-  methodBtnText: { color: "#666", fontSize: 14 },
-  methodBtnTextActive: { color: "#e63946", fontWeight: "600" },
-  btn: { backgroundColor: "#e63946", paddingVertical: 16, borderRadius: 12, alignItems: "center", marginTop: 28 },
+  otpNote: { marginTop: 16, backgroundColor: "#1a1a1a", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#2a2a2a" },
+  otpNoteText: { color: "#888", fontSize: 13 },
+  btn: { backgroundColor: "#e63946", paddingVertical: 16, borderRadius: 12, alignItems: "center", marginTop: 24 },
   btnDisabled: { opacity: 0.4 },
   btnText: { color: "#fff", fontSize: 17, fontWeight: "700" },
   switchText: { color: "#555", textAlign: "center", fontSize: 14, marginTop: 20 },

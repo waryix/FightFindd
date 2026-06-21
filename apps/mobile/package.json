@@ -18,6 +18,7 @@
     "@react-navigation/native-stack": "^7.17.5",
     "@repo/types": "workspace:*",
     "@repo/utils": "workspace:*",
+    "@supabase/supabase-js": "^2.49.4",
     "expo": "~56.0.12",
     "expo-constants": "^56.0.18",
     "expo-linking": "^56.0.14",
