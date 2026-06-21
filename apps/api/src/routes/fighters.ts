@@ -5,7 +5,7 @@ import { supabase } from "../config/supabase";
 export const fighterRouter = Router();
 
 fighterRouter.get("/", async (req, res) => {
-  const { city, skill_level, weight_class, discipline } = req.query;
+  const { city, skill_level, weight_class, discipline, exclude_id } = req.query;
 
   let query = supabase.from("fighters").select("*");
 
@@ -13,6 +13,7 @@ fighterRouter.get("/", async (req, res) => {
   if (skill_level) query = query.eq("skill_level", skill_level);
   if (weight_class) query = query.eq("weight_class", weight_class);
   if (discipline) query = query.contains("discipline", [discipline]);
+  if (exclude_id) query = query.neq("id", exclude_id);
 
   const { data, error } = await query;
 

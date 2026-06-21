@@ -1,7 +1,8 @@
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useState, useEffect } from "react";
 import { router } from "expo-router";
-import type { Fighter, Discipline, SkillLevel } from "@repo/types/fighter";
+import { getSession } from "../../src/store/session";
+import type { Discipline, SkillLevel } from "@repo/types/fighter";
 
 const DISCIPLINES: Discipline[] = ["boxing", "mma", "kickboxing", "muay_thai", "bjj", "wrestling"];
 const SKILL_LEVELS: SkillLevel[] = ["beginner", "intermediate", "advanced", "professional"];
@@ -14,15 +15,25 @@ const SKILL_COLOR: Record<SkillLevel, string> = {
 };
 
 export default function DiscoverScreen() {
-  const [fighters, setFighters] = useState<Fighter[]>([]);
+  const [fighters, setFighters] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [disciplineFilter, setDisciplineFilter] = useState<Discipline | null>(null);
   const [skillFilter, setSkillFilter] = useState<SkillLevel | null>(null);
+  const [myId, setMyId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchFighters();
-  }, [disciplineFilter, skillFilter]);
+    loadMyId();
+  }, []);
+
+  useEffect(() => {
+    if (myId !== null) fetchFighters();
+  }, [myId, disciplineFilter, skillFilter]);
+
+  const loadMyId = async () => {
+    const id = await getSession();
+    setMyId(id);
+  };
 
   const fetchFighters = async () => {
     setLoading(true);
@@ -31,6 +42,7 @@ export default function DiscoverScreen() {
       const params = new URLSearchParams();
       if (disciplineFilter) params.append("discipline", disciplineFilter);
       if (skillFilter) params.append("skill_level", skillFilter);
+      if (myId) params.append("exclude_id", myId);
 
       const response = await fetch(
         `http://localhost:4000/api/fighters?${params.toString()}`
