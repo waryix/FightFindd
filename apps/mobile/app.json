@@ -14,7 +14,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.fightfind.app"
+      "bundleIdentifier": "com.fightfind.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "FightFind uses your location to find nearby sparring partners and gyms."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -22,7 +25,11 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "package": "com.fightfind.app"
+      "package": "com.fightfind.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -30,7 +37,13 @@
     },
     "platforms": ["ios", "android", "web"],
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "FightFind uses your location to find nearby sparring partners and gyms."
+        }
+      ]
     ]
   }
 }

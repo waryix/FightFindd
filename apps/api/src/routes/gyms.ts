@@ -4,7 +4,7 @@ import { supabase } from "../config/supabase";
 export const gymRouter = Router();
 
 gymRouter.get("/", async (req, res) => {
-  const { city, discipline } = req.query;
+  const { city, discipline, lat, lng, radius_km } = req.query;
 
   let query = supabase.from("gyms").select("*");
 
@@ -18,7 +18,28 @@ gymRouter.get("/", async (req, res) => {
     return;
   }
 
-  res.json({ gyms: data, count: data?.length ?? 0 });
+  let gyms = data ?? [];
+
+  if (lat && lng && radius_km) {
+    const userLat = parseFloat(lat as string);
+    const userLng = parseFloat(lng as string);
+    const radius = parseFloat(radius_km as string);
+
+    gyms = gyms.filter(g => {
+      const R = 6371;
+      const dLat = ((g.latitude - userLat) * Math.PI) / 180;
+      const dLon = ((g.longitude - userLng) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos((userLat * Math.PI) / 180) *
+        Math.cos((g.latitude * Math.PI) / 180) *
+        Math.sin(dLon / 2) ** 2;
+      const distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return distance <= radius;
+    });
+  }
+
+  res.json({ gyms, count: gyms.length });
 });
 
 gymRouter.get("/:id", async (req, res) => {

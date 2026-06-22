@@ -1,11 +1,13 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, ScrollView, TextInput } from "react-native";
 import { useState, useEffect } from "react";
 import { router } from "expo-router";
+import * as Location from "expo-location";
 import { getSession } from "../../src/store/session";
-import type { Discipline, SkillLevel } from "@repo/types/fighter";
+import type { Discipline, SkillLevel, WeightClass } from "@repo/types/fighter";
 
 const DISCIPLINES: Discipline[] = ["boxing", "mma", "kickboxing", "muay_thai", "bjj", "wrestling"];
 const SKILL_LEVELS: SkillLevel[] = ["beginner", "intermediate", "advanced", "professional"];
+const WEIGHT_CLASSES: WeightClass[] = ["flyweight", "bantamweight", "featherweight", "lightweight", "welterweight", "middleweight", "heavyweight"];
 
 const SKILL_COLOR: Record<SkillLevel, string> = {
   beginner: "#22c55e",
@@ -14,13 +16,50 @@ const SKILL_COLOR: Record<SkillLevel, string> = {
   professional: "#e63946",
 };
 
+interface Filters {
+  discipline: Discipline | null;
+  skillLevel: SkillLevel | null;
+  weightClass: WeightClass | null;
+  city: string;
+  minWeight: string;
+  maxWeight: string;
+  minHeight: string;
+  maxHeight: string;
+  minExperience: string;
+  maxExperience: string;
+  minFights: string;
+  maxFights: string;
+  radiusKm: string;
+  useLocation: boolean;
+}
+
+const DEFAULT_FILTERS: Filters = {
+  discipline: null,
+  skillLevel: null,
+  weightClass: null,
+  city: "",
+  minWeight: "",
+  maxWeight: "",
+  minHeight: "",
+  maxHeight: "",
+  minExperience: "",
+  maxExperience: "",
+  minFights: "",
+  maxFights: "",
+  radiusKm: "25",
+  useLocation: false,
+};
+
 export default function DiscoverScreen() {
   const [fighters, setFighters] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [disciplineFilter, setDisciplineFilter] = useState<Discipline | null>(null);
-  const [skillFilter, setSkillFilter] = useState<SkillLevel | null>(null);
   const [myId, setMyId] = useState<string | null>(null);
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationError, setLocationError] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [appliedFilters, setAppliedFilters] = useState<Filters>(DEFAULT_FILTERS);
 
   useEffect(() => {
     loadMyId();
@@ -28,11 +67,28 @@ export default function DiscoverScreen() {
 
   useEffect(() => {
     if (myId !== null) fetchFighters();
-  }, [myId, disciplineFilter, skillFilter]);
+  }, [myId, appliedFilters]);
 
   const loadMyId = async () => {
     const id = await getSession();
     setMyId(id);
+  };
+
+  const requestLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        setLocationError("Location permission denied");
+        return null;
+      }
+      const loc = await Location.getCurrentPositionAsync({});
+      const coords = { lat: loc.coords.latitude, lng: loc.coords.longitude };
+      setLocation(coords);
+      return coords;
+    } catch (err) {
+      setLocationError("Could not get location");
+      return null;
+    }
   };
 
   const fetchFighters = async () => {
@@ -40,9 +96,27 @@ export default function DiscoverScreen() {
     setError("");
     try {
       const params = new URLSearchParams();
-      if (disciplineFilter) params.append("discipline", disciplineFilter);
-      if (skillFilter) params.append("skill_level", skillFilter);
+      const f = appliedFilters;
+
+      if (f.discipline) params.append("discipline", f.discipline);
+      if (f.skillLevel) params.append("skill_level", f.skillLevel);
+      if (f.weightClass) params.append("weight_class", f.weightClass);
+      if (f.city) params.append("city", f.city);
+      if (f.minWeight) params.append("min_weight", f.minWeight);
+      if (f.maxWeight) params.append("max_weight", f.maxWeight);
+      if (f.minHeight) params.append("min_height", f.minHeight);
+      if (f.maxHeight) params.append("max_height", f.maxHeight);
+      if (f.minExperience) params.append("min_experience", f.minExperience);
+      if (f.maxExperience) params.append("max_experience", f.maxExperience);
+      if (f.minFights) params.append("min_fights", f.minFights);
+      if (f.maxFights) params.append("max_fights", f.maxFights);
       if (myId) params.append("exclude_id", myId);
+
+      if (f.useLocation && location) {
+        params.append("lat", location.lat.toString());
+        params.append("lng", location.lng.toString());
+        params.append("radius_km", f.radiusKm || "25");
+      }
 
       const response = await fetch(
         `http://localhost:4000/api/fighters?${params.toString()}`
@@ -62,16 +136,33 @@ export default function DiscoverScreen() {
     }
   };
 
-  const handleRequestSparring = (fighter: any) => {
-    router.push({
-      pathname: "/(tabs)/request/[receiverId]",
-      params: {
-        receiverId: fighter.id,
-        receiverName: fighter.name,
-        receiverSkill: fighter.skill_level,
-        receiverDisciplines: JSON.stringify(fighter.discipline),
-      },
-    });
+  const activeFilterCount = Object.entries(appliedFilters).filter(([key, val]) => {
+    if (key === "radiusKm") return false;
+    if (typeof val === "boolean") return val;
+    return val !== null && val !== "";
+  }).length;
+
+  const handleApply = () => {
+    setAppliedFilters({ ...filters });
+    setShowFilters(false);
+  };
+
+  const handleClear = () => {
+    setFilters(DEFAULT_FILTERS);
+    setAppliedFilters(DEFAULT_FILTERS);
+    setShowFilters(false);
+  };
+
+  const handleLocationToggle = async () => {
+    if (!filters.useLocation && !location) {
+      const coords = await requestLocation();
+      if (!coords) return;
+    }
+    setFilters(prev => ({ ...prev, useLocation: !prev.useLocation }));
+  };
+
+  const update = (key: keyof Filters, val: any) => {
+    setFilters(prev => ({ ...prev, [key]: val }));
   };
 
   const renderFighter = ({ item }: { item: any }) => (
@@ -91,15 +182,42 @@ export default function DiscoverScreen() {
                 {item.skill_level}
               </Text>
             </View>
-            <View style={styles.weightTag}>
-              <Text style={styles.weightTagText}>{item.weight_class}</Text>
+            <View style={styles.tag}>
+              <Text style={styles.tagText}>{item.weight_class?.replace("_", " ")}</Text>
             </View>
+            {item.weight_kg && (
+              <View style={styles.tag}>
+                <Text style={styles.tagText}>{item.weight_kg}kg</Text>
+              </View>
+            )}
+            {item.height_cm && (
+              <View style={styles.tag}>
+                <Text style={styles.tagText}>{item.height_cm}cm</Text>
+              </View>
+            )}
           </View>
         </View>
       </View>
 
+      <View style={styles.statsRow}>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{item.years_experience ?? 0}</Text>
+          <Text style={styles.statLabel}>yrs exp</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{item.total_amateur_fights ?? 0}</Text>
+          <Text style={styles.statLabel}>amateur</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{item.total_pro_fights ?? 0}</Text>
+          <Text style={styles.statLabel}>pro fights</Text>
+        </View>
+      </View>
+
       <View style={styles.disciplines}>
-        {item.discipline.map((d: string) => (
+        {item.discipline?.map((d: string) => (
           <View key={d} style={styles.disciplineChip}>
             <Text style={styles.disciplineChipText}>{d.replace("_", " ")}</Text>
           </View>
@@ -110,7 +228,15 @@ export default function DiscoverScreen() {
 
       <TouchableOpacity
         style={styles.requestBtn}
-        onPress={() => handleRequestSparring(item)}
+        onPress={() => router.push({
+          pathname: "/(tabs)/request/[receiverId]",
+          params: {
+            receiverId: item.id,
+            receiverName: item.name,
+            receiverSkill: item.skill_level,
+            receiverDisciplines: JSON.stringify(item.discipline),
+          },
+        })}
       >
         <Text style={styles.requestBtnText}>Request Sparring</Text>
       </TouchableOpacity>
@@ -120,11 +246,25 @@ export default function DiscoverScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Discover</Text>
-        <Text style={styles.headerSub}>Find sparring partners near you</Text>
+        <View>
+          <Text style={styles.headerTitle}>Discover</Text>
+          <Text style={styles.headerSub}>
+            {appliedFilters.useLocation && location
+              ? `Within ${appliedFilters.radiusKm}km of you`
+              : "Find sparring partners"}
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.filterBtn, activeFilterCount > 0 && styles.filterBtnActive]}
+          onPress={() => setShowFilters(true)}
+        >
+          <Text style={[styles.filterBtnText, activeFilterCount > 0 && styles.filterBtnTextActive]}>
+            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.filters}>
+      <View style={styles.disciplineRow}>
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -133,31 +273,15 @@ export default function DiscoverScreen() {
           contentContainerStyle={styles.filterList}
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={[styles.filterChip, (item === "all" ? disciplineFilter === null : disciplineFilter === item) && styles.filterChipActive]}
-              onPress={() => setDisciplineFilter(item === "all" ? null : item as Discipline)}
+              style={[styles.filterChip, (item === "all" ? appliedFilters.discipline === null : appliedFilters.discipline === item) && styles.filterChipActive]}
+              onPress={() => {
+                const val = item === "all" ? null : item as Discipline;
+                setFilters(prev => ({ ...prev, discipline: val }));
+                setAppliedFilters(prev => ({ ...prev, discipline: val }));
+              }}
             >
-              <Text style={[styles.filterChipText, (item === "all" ? disciplineFilter === null : disciplineFilter === item) && styles.filterChipTextActive]}>
+              <Text style={[styles.filterChipText, (item === "all" ? appliedFilters.discipline === null : appliedFilters.discipline === item) && styles.filterChipTextActive]}>
                 {item === "all" ? "All" : item.replace("_", " ")}
-              </Text>
-            </TouchableOpacity>
-          )}
-        />
-      </View>
-
-      <View style={styles.skillFilters}>
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={["all", ...SKILL_LEVELS]}
-          keyExtractor={item => item}
-          contentContainerStyle={styles.filterList}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.filterChip, (item === "all" ? skillFilter === null : skillFilter === item) && styles.filterChipActive]}
-              onPress={() => setSkillFilter(item === "all" ? null : item as SkillLevel)}
-            >
-              <Text style={[styles.filterChipText, (item === "all" ? skillFilter === null : skillFilter === item) && styles.filterChipTextActive]}>
-                {item === "all" ? "All levels" : item}
               </Text>
             </TouchableOpacity>
           )}
@@ -179,7 +303,10 @@ export default function DiscoverScreen() {
       ) : fighters.length === 0 ? (
         <View style={styles.center}>
           <Text style={styles.emptyText}>No fighters found</Text>
-          <Text style={styles.emptySubText}>Try changing your filters</Text>
+          <Text style={styles.emptySubText}>Try adjusting your filters</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={handleClear}>
+            <Text style={styles.retryBtnText}>Clear filters</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
@@ -190,17 +317,132 @@ export default function DiscoverScreen() {
           showsVerticalScrollIndicator={false}
         />
       )}
+
+      <Modal visible={showFilters} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Filters</Text>
+              <TouchableOpacity onPress={handleClear}>
+                <Text style={styles.clearText}>Clear all</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+
+              <Text style={styles.modalSection}>Location</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Search by city (e.g. Bengaluru)"
+                placeholderTextColor="#444"
+                value={filters.city}
+                onChangeText={val => update("city", val)}
+                color="#fff"
+              />
+              <TouchableOpacity
+                style={[styles.locationToggle, filters.useLocation && styles.locationToggleActive]}
+                onPress={handleLocationToggle}
+              >
+                <Text style={[styles.locationToggleText, filters.useLocation && styles.locationToggleTextActive]}>
+                  {filters.useLocation ? "Using my location" : "Filter by my location"}
+                </Text>
+              </TouchableOpacity>
+              {locationError ? <Text style={styles.locationError}>{locationError}</Text> : null}
+
+              {filters.useLocation && (
+                <>
+                  <Text style={styles.modalLabel}>Radius (km)</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="25"
+                    placeholderTextColor="#444"
+                    keyboardType="number-pad"
+                    value={filters.radiusKm}
+                    onChangeText={val => update("radiusKm", val)}
+                    color="#fff"
+                  />
+                </>
+              )}
+
+              <Text style={styles.modalSection}>Physical</Text>
+              <Text style={styles.modalLabel}>Weight (kg)</Text>
+              <View style={styles.rangeRow}>
+                <TextInput style={styles.rangeInput} placeholder="Min (e.g. 60)" placeholderTextColor="#444" keyboardType="decimal-pad" value={filters.minWeight} onChangeText={val => update("minWeight", val)} color="#fff" />
+                <Text style={styles.rangeSep}>to</Text>
+                <TextInput style={styles.rangeInput} placeholder="Max (e.g. 80)" placeholderTextColor="#444" keyboardType="decimal-pad" value={filters.maxWeight} onChangeText={val => update("maxWeight", val)} color="#fff" />
+              </View>
+
+              <Text style={styles.modalLabel}>Height (cm)</Text>
+              <View style={styles.rangeRow}>
+                <TextInput style={styles.rangeInput} placeholder="Min (e.g. 160)" placeholderTextColor="#444" keyboardType="number-pad" value={filters.minHeight} onChangeText={val => update("minHeight", val)} color="#fff" />
+                <Text style={styles.rangeSep}>to</Text>
+                <TextInput style={styles.rangeInput} placeholder="Max (e.g. 185)" placeholderTextColor="#444" keyboardType="number-pad" value={filters.maxHeight} onChangeText={val => update("maxHeight", val)} color="#fff" />
+              </View>
+
+              <Text style={styles.modalLabel}>Weight Class</Text>
+              <View style={styles.chips}>
+                {WEIGHT_CLASSES.map(w => (
+                  <TouchableOpacity
+                    key={w}
+                    style={[styles.chip, filters.weightClass === w && styles.chipActive]}
+                    onPress={() => update("weightClass", filters.weightClass === w ? null : w)}
+                  >
+                    <Text style={[styles.chipText, filters.weightClass === w && styles.chipTextActive]}>{w.replace("_", " ")}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.modalSection}>Experience</Text>
+              <Text style={styles.modalLabel}>Years Training</Text>
+              <View style={styles.rangeRow}>
+                <TextInput style={styles.rangeInput} placeholder="Min" placeholderTextColor="#444" keyboardType="number-pad" value={filters.minExperience} onChangeText={val => update("minExperience", val)} color="#fff" />
+                <Text style={styles.rangeSep}>to</Text>
+                <TextInput style={styles.rangeInput} placeholder="Max" placeholderTextColor="#444" keyboardType="number-pad" value={filters.maxExperience} onChangeText={val => update("maxExperience", val)} color="#fff" />
+              </View>
+
+              <Text style={styles.modalLabel}>Total Fights</Text>
+              <View style={styles.rangeRow}>
+                <TextInput style={styles.rangeInput} placeholder="Min" placeholderTextColor="#444" keyboardType="number-pad" value={filters.minFights} onChangeText={val => update("minFights", val)} color="#fff" />
+                <Text style={styles.rangeSep}>to</Text>
+                <TextInput style={styles.rangeInput} placeholder="Max" placeholderTextColor="#444" keyboardType="number-pad" value={filters.maxFights} onChangeText={val => update("maxFights", val)} color="#fff" />
+              </View>
+
+              <Text style={styles.modalSection}>Skill & Style</Text>
+              <Text style={styles.modalLabel}>Skill Level</Text>
+              <View style={styles.chips}>
+                {SKILL_LEVELS.map(s => (
+                  <TouchableOpacity
+                    key={s}
+                    style={[styles.chip, filters.skillLevel === s && styles.chipActive]}
+                    onPress={() => update("skillLevel", filters.skillLevel === s ? null : s)}
+                  >
+                    <Text style={[styles.chipText, filters.skillLevel === s && styles.chipTextActive]}>{s}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+            </ScrollView>
+
+            <TouchableOpacity style={styles.applyBtn} onPress={handleApply}>
+              <Text style={styles.applyBtnText}>Apply Filters</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0a0a0a" },
-  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12 },
+  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
   headerTitle: { fontSize: 28, fontWeight: "800", color: "#fff" },
   headerSub: { fontSize: 14, color: "#666", marginTop: 2 },
-  filters: { marginBottom: 4 },
-  skillFilters: { marginBottom: 8 },
+  filterBtn: { backgroundColor: "#1a1a1a", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: "#2a2a2a", marginTop: 4 },
+  filterBtnActive: { backgroundColor: "#e6394622", borderColor: "#e63946" },
+  filterBtnText: { color: "#666", fontSize: 13, fontWeight: "600" },
+  filterBtnTextActive: { color: "#e63946" },
+  disciplineRow: { marginBottom: 8 },
   filterList: { paddingHorizontal: 16, gap: 8 },
   filterChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: "#1a1a1a", borderWidth: 1, borderColor: "#2a2a2a" },
   filterChipActive: { backgroundColor: "#e63946", borderColor: "#e63946" },
@@ -208,28 +450,56 @@ const styles = StyleSheet.create({
   filterChipTextActive: { color: "#fff" },
   list: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
   card: { backgroundColor: "#141414", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "#2a2a2a" },
-  cardTop: { flexDirection: "row", gap: 14, marginBottom: 12 },
+  cardTop: { flexDirection: "row", gap: 14, marginBottom: 10 },
   avatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: "#e63946", alignItems: "center", justifyContent: "center" },
   avatarText: { color: "#fff", fontSize: 18, fontWeight: "700" },
   cardInfo: { flex: 1, gap: 4 },
   fighterName: { fontSize: 17, fontWeight: "700", color: "#fff" },
   fighterLocation: { fontSize: 13, color: "#666" },
-  tagRow: { flexDirection: "row", gap: 6, marginTop: 2 },
+  tagRow: { flexDirection: "row", gap: 6, marginTop: 2, flexWrap: "wrap" },
   skillTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1 },
   skillTagText: { fontSize: 11, fontWeight: "600", textTransform: "capitalize" },
-  weightTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: "#1a1a1a", borderWidth: 1, borderColor: "#2a2a2a" },
-  weightTagText: { fontSize: 11, color: "#888", textTransform: "capitalize" },
+  tag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: "#1a1a1a", borderWidth: 1, borderColor: "#2a2a2a" },
+  tagText: { fontSize: 11, color: "#888", textTransform: "capitalize" },
+  statsRow: { flexDirection: "row", backgroundColor: "#1a1a1a", borderRadius: 10, padding: 10, marginBottom: 10, alignItems: "center" },
+  statItem: { flex: 1, alignItems: "center" },
+  statValue: { fontSize: 16, fontWeight: "700", color: "#fff" },
+  statLabel: { fontSize: 10, color: "#555", marginTop: 1 },
+  statDivider: { width: 1, height: 24, backgroundColor: "#2a2a2a" },
   disciplines: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 10 },
   disciplineChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, backgroundColor: "#1a1a1a" },
   disciplineChipText: { fontSize: 12, color: "#888", textTransform: "capitalize" },
   bio: { fontSize: 13, color: "#666", lineHeight: 18, marginBottom: 12 },
   requestBtn: { backgroundColor: "#e6394622", borderRadius: 10, paddingVertical: 10, alignItems: "center", borderWidth: 1, borderColor: "#e6394655" },
   requestBtnText: { color: "#e63946", fontSize: 14, fontWeight: "600" },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: 32 },
   loadingText: { color: "#666", fontSize: 14 },
   errorText: { color: "#e63946", fontSize: 14 },
   retryBtn: { backgroundColor: "#1a1a1a", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
   retryBtnText: { color: "#fff", fontSize: 14 },
-  emptyText: { color: "#fff", fontSize: 18, fontWeight: "600" },
-  emptySubText: { color: "#666", fontSize: 14 },
+  emptyText: { color: "#fff", fontSize: 18, fontWeight: "600", textAlign: "center" },
+  emptySubText: { color: "#666", fontSize: 14, textAlign: "center" },
+  modalOverlay: { flex: 1, backgroundColor: "#000000aa", justifyContent: "flex-end" },
+  modalSheet: { backgroundColor: "#141414", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: "90%", borderWidth: 1, borderColor: "#2a2a2a" },
+  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  modalTitle: { fontSize: 20, fontWeight: "800", color: "#fff" },
+  clearText: { color: "#e63946", fontSize: 14, fontWeight: "600" },
+  modalSection: { fontSize: 15, fontWeight: "700", color: "#fff", marginTop: 20, marginBottom: 4, borderBottomWidth: 1, borderBottomColor: "#2a2a2a", paddingBottom: 6 },
+  modalLabel: { fontSize: 12, fontWeight: "600", color: "#555", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, marginTop: 14 },
+  modalInput: { backgroundColor: "#1a1a1a", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, borderWidth: 1, borderColor: "#2a2a2a", marginBottom: 8 },
+  rangeRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  rangeInput: { flex: 1, backgroundColor: "#1a1a1a", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, borderWidth: 1, borderColor: "#2a2a2a" },
+  rangeSep: { color: "#555", fontSize: 14 },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: "#1a1a1a", borderWidth: 1, borderColor: "#2a2a2a" },
+  chipActive: { backgroundColor: "#e63946", borderColor: "#e63946" },
+  chipText: { color: "#888", fontSize: 13, fontWeight: "500", textTransform: "capitalize" },
+  chipTextActive: { color: "#fff" },
+  locationToggle: { backgroundColor: "#1a1a1a", borderRadius: 12, padding: 14, borderWidth: 1, borderColor: "#2a2a2a", marginBottom: 4 },
+  locationToggleActive: { borderColor: "#e63946", backgroundColor: "#e6394611" },
+  locationToggleText: { color: "#666", fontSize: 14, fontWeight: "600" },
+  locationToggleTextActive: { color: "#e63946" },
+  locationError: { color: "#e63946", fontSize: 12, marginTop: 4 },
+  applyBtn: { backgroundColor: "#e63946", borderRadius: 12, paddingVertical: 16, alignItems: "center", marginTop: 16 },
+  applyBtnText: { color: "#fff", fontSize: 17, fontWeight: "700" },
 });
