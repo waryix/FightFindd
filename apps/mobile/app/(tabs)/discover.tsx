@@ -34,20 +34,10 @@ interface Filters {
 }
 
 const DEFAULT_FILTERS: Filters = {
-  discipline: null,
-  skillLevel: null,
-  weightClass: null,
-  city: "",
-  minWeight: "",
-  maxWeight: "",
-  minHeight: "",
-  maxHeight: "",
-  minExperience: "",
-  maxExperience: "",
-  minFights: "",
-  maxFights: "",
-  radiusKm: "25",
-  useLocation: false,
+  discipline: null, skillLevel: null, weightClass: null, city: "",
+  minWeight: "", maxWeight: "", minHeight: "", maxHeight: "",
+  minExperience: "", maxExperience: "", minFights: "", maxFights: "",
+  radiusKm: "25", useLocation: false,
 };
 
 export default function DiscoverScreen() {
@@ -61,34 +51,20 @@ export default function DiscoverScreen() {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<Filters>(DEFAULT_FILTERS);
 
-  useEffect(() => {
-    loadMyId();
-  }, []);
+  useEffect(() => { loadMyId(); }, []);
+  useEffect(() => { if (myId !== null) fetchFighters(); }, [myId, appliedFilters]);
 
-  useEffect(() => {
-    if (myId !== null) fetchFighters();
-  }, [myId, appliedFilters]);
-
-  const loadMyId = async () => {
-    const id = await getSession();
-    setMyId(id);
-  };
+  const loadMyId = async () => { const id = await getSession(); setMyId(id); };
 
   const requestLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        setLocationError("Location permission denied");
-        return null;
-      }
+      if (status !== "granted") { setLocationError("Location permission denied"); return null; }
       const loc = await Location.getCurrentPositionAsync({});
       const coords = { lat: loc.coords.latitude, lng: loc.coords.longitude };
       setLocation(coords);
       return coords;
-    } catch (err) {
-      setLocationError("Could not get location");
-      return null;
-    }
+    } catch { setLocationError("Could not get location"); return null; }
   };
 
   const fetchFighters = async () => {
@@ -97,7 +73,6 @@ export default function DiscoverScreen() {
     try {
       const params = new URLSearchParams();
       const f = appliedFilters;
-
       if (f.discipline) params.append("discipline", f.discipline);
       if (f.skillLevel) params.append("skill_level", f.skillLevel);
       if (f.weightClass) params.append("weight_class", f.weightClass);
@@ -111,29 +86,17 @@ export default function DiscoverScreen() {
       if (f.minFights) params.append("min_fights", f.minFights);
       if (f.maxFights) params.append("max_fights", f.maxFights);
       if (myId) params.append("exclude_id", myId);
-
       if (f.useLocation && location) {
         params.append("lat", location.lat.toString());
         params.append("lng", location.lng.toString());
         params.append("radius_km", f.radiusKm || "25");
       }
-
-      const response = await fetch(
-        `http://localhost:4000/api/fighters?${params.toString()}`
-      );
+      const response = await fetch(`http://localhost:4000/api/fighters?${params.toString()}`);
       const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error);
-        return;
-      }
-
+      if (!response.ok) { setError(data.error); return; }
       setFighters(data.fighters);
-    } catch (err: any) {
-      setError("Could not connect to server");
-    } finally {
-      setLoading(false);
-    }
+    } catch { setError("Could not connect to server"); }
+    finally { setLoading(false); }
   };
 
   const activeFilterCount = Object.entries(appliedFilters).filter(([key, val]) => {
@@ -142,16 +105,9 @@ export default function DiscoverScreen() {
     return val !== null && val !== "";
   }).length;
 
-  const handleApply = () => {
-    setAppliedFilters({ ...filters });
-    setShowFilters(false);
-  };
-
-  const handleClear = () => {
-    setFilters(DEFAULT_FILTERS);
-    setAppliedFilters(DEFAULT_FILTERS);
-    setShowFilters(false);
-  };
+  const handleApply = () => { setAppliedFilters({ ...filters }); setShowFilters(false); };
+  const handleClear = () => { setFilters(DEFAULT_FILTERS); setAppliedFilters(DEFAULT_FILTERS); setShowFilters(false); };
+  const update = (key: keyof Filters, val: any) => setFilters(prev => ({ ...prev, [key]: val }));
 
   const handleLocationToggle = async () => {
     if (!filters.useLocation && !location) {
@@ -161,87 +117,86 @@ export default function DiscoverScreen() {
     setFilters(prev => ({ ...prev, useLocation: !prev.useLocation }));
   };
 
-  const update = (key: keyof Filters, val: any) => {
-    setFilters(prev => ({ ...prev, [key]: val }));
-  };
-
-  const renderFighter = ({ item }: { item: any }) => (
-    <View style={styles.card}>
-      <View style={styles.cardTop}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {item.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
-          </Text>
-        </View>
-        <View style={styles.cardInfo}>
-          <Text style={styles.fighterName}>{item.name}</Text>
-          <Text style={styles.fighterLocation}>{item.city}, {item.state}</Text>
-          <View style={styles.tagRow}>
-            <View style={[styles.skillTag, { backgroundColor: SKILL_COLOR[item.skill_level as SkillLevel] + "22", borderColor: SKILL_COLOR[item.skill_level as SkillLevel] }]}>
-              <Text style={[styles.skillTagText, { color: SKILL_COLOR[item.skill_level as SkillLevel] }]}>
-                {item.skill_level}
-              </Text>
-            </View>
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>{item.weight_class?.replace("_", " ")}</Text>
-            </View>
-            {item.weight_kg && (
-              <View style={styles.tag}>
-                <Text style={styles.tagText}>{item.weight_kg}kg</Text>
-              </View>
-            )}
-            {item.height_cm && (
-              <View style={styles.tag}>
-                <Text style={styles.tagText}>{item.height_cm}cm</Text>
-              </View>
-            )}
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.statsRow}>
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>{item.years_experience ?? 0}</Text>
-          <Text style={styles.statLabel}>yrs exp</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>{item.total_amateur_fights ?? 0}</Text>
-          <Text style={styles.statLabel}>amateur</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>{item.total_pro_fights ?? 0}</Text>
-          <Text style={styles.statLabel}>pro fights</Text>
-        </View>
-      </View>
-
-      <View style={styles.disciplines}>
-        {item.discipline?.map((d: string) => (
-          <View key={d} style={styles.disciplineChip}>
-            <Text style={styles.disciplineChipText}>{d.replace("_", " ")}</Text>
-          </View>
-        ))}
-      </View>
-
-      {item.bio ? <Text style={styles.bio} numberOfLines={2}>{item.bio}</Text> : null}
-
+  const renderFighter = ({ item }: { item: any }) => {
+    const skillColor = SKILL_COLOR[item.skill_level as SkillLevel] ?? "#888";
+    return (
       <TouchableOpacity
-        style={styles.requestBtn}
-        onPress={() => router.push({
-          pathname: "/(tabs)/request/[receiverId]",
-          params: {
-            receiverId: item.id,
-            receiverName: item.name,
-            receiverSkill: item.skill_level,
-            receiverDisciplines: JSON.stringify(item.discipline),
-          },
-        })}
+        style={styles.card}
+        onPress={() => router.push({ pathname: "/(tabs)/fighter/[fighterId]", params: { fighterId: item.id } })}
+        activeOpacity={0.8}
       >
-        <Text style={styles.requestBtnText}>Request Sparring</Text>
+        <View style={styles.cardTop}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {item.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
+            </Text>
+          </View>
+          <View style={styles.cardInfo}>
+            <Text style={styles.fighterName}>{item.name}</Text>
+            <Text style={styles.fighterLocation}>{item.city}, {item.state}</Text>
+            <View style={styles.tagRow}>
+              <View style={[styles.skillTag, { backgroundColor: skillColor + "22", borderColor: skillColor }]}>
+                <Text style={[styles.skillTagText, { color: skillColor }]}>{item.skill_level}</Text>
+              </View>
+              <View style={styles.tag}>
+                <Text style={styles.tagText}>{item.weight_class?.replace("_", " ")}</Text>
+              </View>
+              {item.weight_kg ? <View style={styles.tag}><Text style={styles.tagText}>{item.weight_kg}kg</Text></View> : null}
+              {item.height_cm ? <View style={styles.tag}><Text style={styles.tagText}>{item.height_cm}cm</Text></View> : null}
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{item.years_experience ?? 0}</Text>
+            <Text style={styles.statLabel}>yrs exp</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{item.total_amateur_fights ?? 0}</Text>
+            <Text style={styles.statLabel}>amateur</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{item.total_pro_fights ?? 0}</Text>
+            <Text style={styles.statLabel}>pro fights</Text>
+          </View>
+        </View>
+
+        <View style={styles.disciplines}>
+          {item.discipline?.map((d: string) => (
+            <View key={d} style={styles.disciplineChip}>
+              <Text style={styles.disciplineChipText}>{d.replace("_", " ")}</Text>
+            </View>
+          ))}
+        </View>
+
+        {item.bio ? <Text style={styles.bio} numberOfLines={2}>{item.bio}</Text> : null}
+
+        <View style={styles.cardFooter}>
+          <Text style={styles.viewProfile}>View full profile ?</Text>
+          <TouchableOpacity
+            style={styles.requestBtn}
+            onPress={(e) => {
+              e.stopPropagation();
+              router.push({
+                pathname: "/(tabs)/request/[receiverId]",
+                params: {
+                  receiverId: item.id,
+                  receiverName: item.name,
+                  receiverSkill: item.skill_level,
+                  receiverDisciplines: JSON.stringify(item.discipline),
+                },
+              });
+            }}
+          >
+            <Text style={styles.requestBtnText}>Request Sparring</Text>
+          </TouchableOpacity>
+        </View>
       </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -249,9 +204,7 @@ export default function DiscoverScreen() {
         <View>
           <Text style={styles.headerTitle}>Discover</Text>
           <Text style={styles.headerSub}>
-            {appliedFilters.useLocation && location
-              ? `Within ${appliedFilters.radiusKm}km of you`
-              : "Find sparring partners"}
+            {appliedFilters.useLocation && location ? `Within ${appliedFilters.radiusKm}km of you` : "Find sparring partners"}
           </Text>
         </View>
         <TouchableOpacity
@@ -289,24 +242,14 @@ export default function DiscoverScreen() {
       </View>
 
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color="#e63946" size="large" />
-          <Text style={styles.loadingText}>Finding fighters...</Text>
-        </View>
+        <View style={styles.center}><ActivityIndicator color="#e63946" size="large" /><Text style={styles.loadingText}>Finding fighters...</Text></View>
       ) : error ? (
-        <View style={styles.center}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={fetchFighters}>
-            <Text style={styles.retryBtnText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
+        <View style={styles.center}><Text style={styles.errorText}>{error}</Text><TouchableOpacity style={styles.retryBtn} onPress={fetchFighters}><Text style={styles.retryBtnText}>Retry</Text></TouchableOpacity></View>
       ) : fighters.length === 0 ? (
         <View style={styles.center}>
           <Text style={styles.emptyText}>No fighters found</Text>
           <Text style={styles.emptySubText}>Try adjusting your filters</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={handleClear}>
-            <Text style={styles.retryBtnText}>Clear filters</Text>
-          </TouchableOpacity>
+          <TouchableOpacity style={styles.retryBtn} onPress={handleClear}><Text style={styles.retryBtnText}>Clear filters</Text></TouchableOpacity>
         </View>
       ) : (
         <FlatList
@@ -323,70 +266,41 @@ export default function DiscoverScreen() {
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Filters</Text>
-              <TouchableOpacity onPress={handleClear}>
-                <Text style={styles.clearText}>Clear all</Text>
-              </TouchableOpacity>
+              <TouchableOpacity onPress={handleClear}><Text style={styles.clearText}>Clear all</Text></TouchableOpacity>
             </View>
-
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-
               <Text style={styles.modalSection}>Location</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="Search by city (e.g. Bengaluru)"
-                placeholderTextColor="#444"
-                value={filters.city}
-                onChangeText={val => update("city", val)}
-                color="#fff"
-              />
-              <TouchableOpacity
-                style={[styles.locationToggle, filters.useLocation && styles.locationToggleActive]}
-                onPress={handleLocationToggle}
-              >
+              <TextInput style={styles.modalInput} placeholder="Search by city (e.g. Bengaluru)" placeholderTextColor="#444" value={filters.city} onChangeText={val => update("city", val)} color="#fff" />
+              <TouchableOpacity style={[styles.locationToggle, filters.useLocation && styles.locationToggleActive]} onPress={handleLocationToggle}>
                 <Text style={[styles.locationToggleText, filters.useLocation && styles.locationToggleTextActive]}>
                   {filters.useLocation ? "Using my location" : "Filter by my location"}
                 </Text>
               </TouchableOpacity>
               {locationError ? <Text style={styles.locationError}>{locationError}</Text> : null}
-
               {filters.useLocation && (
                 <>
                   <Text style={styles.modalLabel}>Radius (km)</Text>
-                  <TextInput
-                    style={styles.modalInput}
-                    placeholder="25"
-                    placeholderTextColor="#444"
-                    keyboardType="number-pad"
-                    value={filters.radiusKm}
-                    onChangeText={val => update("radiusKm", val)}
-                    color="#fff"
-                  />
+                  <TextInput style={styles.modalInput} placeholder="25" placeholderTextColor="#444" keyboardType="number-pad" value={filters.radiusKm} onChangeText={val => update("radiusKm", val)} color="#fff" />
                 </>
               )}
 
               <Text style={styles.modalSection}>Physical</Text>
               <Text style={styles.modalLabel}>Weight (kg)</Text>
               <View style={styles.rangeRow}>
-                <TextInput style={styles.rangeInput} placeholder="Min (e.g. 60)" placeholderTextColor="#444" keyboardType="decimal-pad" value={filters.minWeight} onChangeText={val => update("minWeight", val)} color="#fff" />
+                <TextInput style={styles.rangeInput} placeholder="Min" placeholderTextColor="#444" keyboardType="decimal-pad" value={filters.minWeight} onChangeText={val => update("minWeight", val)} color="#fff" />
                 <Text style={styles.rangeSep}>to</Text>
-                <TextInput style={styles.rangeInput} placeholder="Max (e.g. 80)" placeholderTextColor="#444" keyboardType="decimal-pad" value={filters.maxWeight} onChangeText={val => update("maxWeight", val)} color="#fff" />
+                <TextInput style={styles.rangeInput} placeholder="Max" placeholderTextColor="#444" keyboardType="decimal-pad" value={filters.maxWeight} onChangeText={val => update("maxWeight", val)} color="#fff" />
               </View>
-
               <Text style={styles.modalLabel}>Height (cm)</Text>
               <View style={styles.rangeRow}>
-                <TextInput style={styles.rangeInput} placeholder="Min (e.g. 160)" placeholderTextColor="#444" keyboardType="number-pad" value={filters.minHeight} onChangeText={val => update("minHeight", val)} color="#fff" />
+                <TextInput style={styles.rangeInput} placeholder="Min" placeholderTextColor="#444" keyboardType="number-pad" value={filters.minHeight} onChangeText={val => update("minHeight", val)} color="#fff" />
                 <Text style={styles.rangeSep}>to</Text>
-                <TextInput style={styles.rangeInput} placeholder="Max (e.g. 185)" placeholderTextColor="#444" keyboardType="number-pad" value={filters.maxHeight} onChangeText={val => update("maxHeight", val)} color="#fff" />
+                <TextInput style={styles.rangeInput} placeholder="Max" placeholderTextColor="#444" keyboardType="number-pad" value={filters.maxHeight} onChangeText={val => update("maxHeight", val)} color="#fff" />
               </View>
-
               <Text style={styles.modalLabel}>Weight Class</Text>
               <View style={styles.chips}>
                 {WEIGHT_CLASSES.map(w => (
-                  <TouchableOpacity
-                    key={w}
-                    style={[styles.chip, filters.weightClass === w && styles.chipActive]}
-                    onPress={() => update("weightClass", filters.weightClass === w ? null : w)}
-                  >
+                  <TouchableOpacity key={w} style={[styles.chip, filters.weightClass === w && styles.chipActive]} onPress={() => update("weightClass", filters.weightClass === w ? null : w)}>
                     <Text style={[styles.chipText, filters.weightClass === w && styles.chipTextActive]}>{w.replace("_", " ")}</Text>
                   </TouchableOpacity>
                 ))}
@@ -399,7 +313,6 @@ export default function DiscoverScreen() {
                 <Text style={styles.rangeSep}>to</Text>
                 <TextInput style={styles.rangeInput} placeholder="Max" placeholderTextColor="#444" keyboardType="number-pad" value={filters.maxExperience} onChangeText={val => update("maxExperience", val)} color="#fff" />
               </View>
-
               <Text style={styles.modalLabel}>Total Fights</Text>
               <View style={styles.rangeRow}>
                 <TextInput style={styles.rangeInput} placeholder="Min" placeholderTextColor="#444" keyboardType="number-pad" value={filters.minFights} onChangeText={val => update("minFights", val)} color="#fff" />
@@ -411,18 +324,12 @@ export default function DiscoverScreen() {
               <Text style={styles.modalLabel}>Skill Level</Text>
               <View style={styles.chips}>
                 {SKILL_LEVELS.map(s => (
-                  <TouchableOpacity
-                    key={s}
-                    style={[styles.chip, filters.skillLevel === s && styles.chipActive]}
-                    onPress={() => update("skillLevel", filters.skillLevel === s ? null : s)}
-                  >
+                  <TouchableOpacity key={s} style={[styles.chip, filters.skillLevel === s && styles.chipActive]} onPress={() => update("skillLevel", filters.skillLevel === s ? null : s)}>
                     <Text style={[styles.chipText, filters.skillLevel === s && styles.chipTextActive]}>{s}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
-
             </ScrollView>
-
             <TouchableOpacity style={styles.applyBtn} onPress={handleApply}>
               <Text style={styles.applyBtnText}>Apply Filters</Text>
             </TouchableOpacity>
@@ -469,9 +376,11 @@ const styles = StyleSheet.create({
   disciplines: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 10 },
   disciplineChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, backgroundColor: "#1a1a1a" },
   disciplineChipText: { fontSize: 12, color: "#888", textTransform: "capitalize" },
-  bio: { fontSize: 13, color: "#666", lineHeight: 18, marginBottom: 12 },
-  requestBtn: { backgroundColor: "#e6394622", borderRadius: 10, paddingVertical: 10, alignItems: "center", borderWidth: 1, borderColor: "#e6394655" },
-  requestBtnText: { color: "#e63946", fontSize: 14, fontWeight: "600" },
+  bio: { fontSize: 13, color: "#666", lineHeight: 18, marginBottom: 10 },
+  cardFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
+  viewProfile: { color: "#555", fontSize: 13 },
+  requestBtn: { backgroundColor: "#e6394622", borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1, borderColor: "#e6394655" },
+  requestBtnText: { color: "#e63946", fontSize: 13, fontWeight: "600" },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: 32 },
   loadingText: { color: "#666", fontSize: 14 },
   errorText: { color: "#e63946", fontSize: 14 },
