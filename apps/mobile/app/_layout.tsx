@@ -1,24 +1,26 @@
-import { Stack, router, usePathname } from "expo-router";
+import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { getSession } from "../src/store/session";
+import { registerForPushNotifications, setupNotificationHandlers } from "../src/services/notifications";
+import { API_URL } from "../src/services/config";
 
 export default function RootLayout() {
   const [checking, setChecking] = useState(true);
   const [hasSession, setHasSession] = useState(false);
-  const pathname = usePathname();
-
-  useEffect(() => { checkSession(); }, []);
 
   useEffect(() => {
-    if (checking) return;
-    if (hasSession && (pathname === "/" || pathname === "")) {
+    setupNotificationHandlers();
+    checkSession();
+  }, []);
+
+  useEffect(() => {
+    if (!checking && hasSession) {
       router.replace("/(tabs)/discover");
-    } else if (!hasSession && (pathname === "/" || pathname === "")) {
-      router.replace("/(auth)/login");
+      registerAndSavePushToken();
     }
-  }, [checking, hasSession, pathname]);
+  }, [checking, hasSession]);
 
   const checkSession = async () => {
     try {
@@ -28,6 +30,26 @@ export default function RootLayout() {
       console.error(err);
     } finally {
       setChecking(false);
+    }
+  };
+
+  const registerAndSavePushToken = async () => {
+    try {
+      const fighterId = await getSession();
+      if (!fighterId) return;
+
+      const token = await registerForPushNotifications();
+      if (!token) return;
+
+      await fetch(`${API_URL}/api/fighters/${fighterId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ push_token: token }),
+      });
+
+      console.log("Push token registered:", token);
+    } catch (err: any) {
+      console.error("Failed to register push token:", err.message);
     }
   };
 

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "801795612385",
+    "project_id": "fightfind-2d9c6",
+    "storage_bucket": "fightfind-2d9c6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:801795612385:android:7bf5e2dfbdc01dbd3161a0",
+        "android_client_info": {
+          "package_name": "com.fightfind.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDeQii6KZFW5kzXODywDDErSMgj1Ptdgk4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
