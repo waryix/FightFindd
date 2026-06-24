@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useState, useEffect } from "react";
 import { getSession } from "../../../src/store/session";
 import { API_URL } from "../../../src/services/config";
+import Avatar from "../../../src/components/Avatar";
 
 const SKILL_COLOR: Record<string, string> = {
   beginner: "#22c55e",
@@ -28,24 +29,17 @@ export default function FighterDetailScreen() {
       setMyId(id);
       const data = await response.json();
       if (response.ok) setFighter(data.fighter);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
   };
 
-  if (loading) {
-    return <View style={styles.center}><ActivityIndicator color="#e63946" size="large" /></View>;
-  }
+  if (loading) return <View style={styles.center}><ActivityIndicator color="#e63946" size="large" /></View>;
 
   if (!fighter) {
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>Fighter not found</Text>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backText}>Go back</Text>
-        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()}><Text style={styles.backText}>Go back</Text></TouchableOpacity>
       </View>
     );
   }
@@ -56,11 +50,7 @@ export default function FighterDetailScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {fighter.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
-          </Text>
-        </View>
+        <Avatar name={fighter.name} avatarUrl={fighter.avatar_url} size={100} />
         <Text style={styles.name}>{fighter.name}</Text>
         <Text style={styles.location}>{fighter.city}, {fighter.state}</Text>
         <View style={[styles.skillBadge, { backgroundColor: skillColor + "22", borderColor: skillColor }]}>
@@ -69,18 +59,9 @@ export default function FighterDetailScreen() {
       </View>
 
       <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{fighter.years_experience ?? 0}</Text>
-          <Text style={styles.statLabel}>Years Training</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{fighter.total_amateur_fights ?? 0}</Text>
-          <Text style={styles.statLabel}>Amateur Fights</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{fighter.total_pro_fights ?? 0}</Text>
-          <Text style={styles.statLabel}>Pro Fights</Text>
-        </View>
+        <View style={styles.statCard}><Text style={styles.statValue}>{fighter.years_experience ?? 0}</Text><Text style={styles.statLabel}>Years Training</Text></View>
+        <View style={styles.statCard}><Text style={styles.statValue}>{fighter.total_amateur_fights ?? 0}</Text><Text style={styles.statLabel}>Amateur Fights</Text></View>
+        <View style={styles.statCard}><Text style={styles.statValue}>{fighter.total_pro_fights ?? 0}</Text><Text style={styles.statLabel}>Pro Fights</Text></View>
       </View>
 
       <View style={styles.infoGrid}>
@@ -129,11 +110,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0a0a0a" },
   content: { padding: 20, paddingBottom: 60 },
   center: { flex: 1, backgroundColor: "#0a0a0a", alignItems: "center", justifyContent: "center", gap: 12 },
-  header: { alignItems: "center", marginBottom: 24 },
-  avatar: { width: 90, height: 90, borderRadius: 45, backgroundColor: "#e63946", alignItems: "center", justifyContent: "center", marginBottom: 12 },
-  avatarText: { color: "#fff", fontSize: 32, fontWeight: "800" },
-  name: { fontSize: 26, fontWeight: "800", color: "#fff", marginBottom: 4 },
-  location: { fontSize: 14, color: "#666", marginBottom: 10 },
+  header: { alignItems: "center", marginBottom: 24, gap: 8 },
+  name: { fontSize: 26, fontWeight: "800", color: "#fff" },
+  location: { fontSize: 14, color: "#666" },
   skillBadge: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
   skillBadgeText: { fontSize: 13, fontWeight: "700", textTransform: "capitalize" },
   statsRow: { flexDirection: "row", gap: 10, marginBottom: 16 },

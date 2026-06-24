@@ -1,16 +1,15 @@
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from "react-native";
 import { router } from "expo-router";
 import { useState, useEffect } from "react";
-import { API_URL } from '../../src/services/config';
 import { getSession, clearSession } from "../../src/store/session";
+import { API_URL } from "../../src/services/config";
+import Avatar from "../../src/components/Avatar";
 
 export default function ProfileScreen() {
   const [fighter, setFighter] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
+  useEffect(() => { loadProfile(); }, []);
 
   const loadProfile = async () => {
     try {
@@ -19,11 +18,8 @@ export default function ProfileScreen() {
       const response = await fetch(`${API_URL}/api/fighters/${fighterId}`);
       const data = await response.json();
       if (response.ok) setFighter(data.fighter);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
   };
 
   const handleLogout = async () => {
@@ -31,9 +27,7 @@ export default function ProfileScreen() {
     router.replace("/");
   };
 
-  if (loading) {
-    return <View style={styles.center}><ActivityIndicator color="#e63946" size="large" /></View>;
-  }
+  if (loading) return <View style={styles.center}><ActivityIndicator color="#e63946" size="large" /></View>;
 
   if (!fighter) {
     return (
@@ -49,13 +43,16 @@ export default function ProfileScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {fighter.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
-          </Text>
-        </View>
+        <Avatar
+          name={fighter.name}
+          avatarUrl={fighter.avatar_url}
+          size={90}
+          editable
+          onUploaded={url => setFighter((prev: any) => ({ ...prev, avatar_url: url }))}
+        />
         <Text style={styles.name}>{fighter.name}</Text>
         <Text style={styles.location}>{fighter.city}, {fighter.state}</Text>
+        <Text style={styles.tapHint}>Tap photo to change</Text>
       </View>
 
       <View style={styles.statsRow}>
@@ -74,26 +71,10 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.infoGrid}>
-        {fighter.height_cm && (
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Height</Text>
-            <Text style={styles.infoValue}>{fighter.height_cm} cm</Text>
-          </View>
-        )}
-        {fighter.weight_kg && (
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Weight</Text>
-            <Text style={styles.infoValue}>{fighter.weight_kg} kg</Text>
-          </View>
-        )}
-        <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Age</Text>
-          <Text style={styles.infoValue}>{fighter.age_years ?? "—"}</Text>
-        </View>
-        <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Weight Class</Text>
-          <Text style={styles.infoValue}>{fighter.weight_class?.replace("_", " ")}</Text>
-        </View>
+        {fighter.height_cm ? <View style={styles.infoItem}><Text style={styles.infoLabel}>Height</Text><Text style={styles.infoValue}>{fighter.height_cm} cm</Text></View> : null}
+        {fighter.weight_kg ? <View style={styles.infoItem}><Text style={styles.infoLabel}>Weight</Text><Text style={styles.infoValue}>{fighter.weight_kg} kg</Text></View> : null}
+        {fighter.age_years ? <View style={styles.infoItem}><Text style={styles.infoLabel}>Age</Text><Text style={styles.infoValue}>{fighter.age_years} yrs</Text></View> : null}
+        <View style={styles.infoItem}><Text style={styles.infoLabel}>Weight Class</Text><Text style={styles.infoValue}>{fighter.weight_class?.replace("_", " ")}</Text></View>
       </View>
 
       <View style={styles.section}>
@@ -119,10 +100,7 @@ export default function ProfileScreen() {
         </View>
       ) : null}
 
-      <TouchableOpacity
-        style={styles.editBtn}
-        onPress={() => router.push("/(tabs)/edit-profile")}
-      >
+      <TouchableOpacity style={styles.editBtn} onPress={() => router.push("/(tabs)/edit-profile")}>
         <Text style={styles.editBtnText}>Edit Profile</Text>
       </TouchableOpacity>
 
@@ -137,11 +115,10 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0a0a0a" },
   content: { padding: 20, paddingBottom: 60 },
   center: { flex: 1, backgroundColor: "#0a0a0a", alignItems: "center", justifyContent: "center" },
-  header: { alignItems: "center", marginBottom: 24 },
-  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: "#e63946", alignItems: "center", justifyContent: "center", marginBottom: 12 },
-  avatarText: { color: "#fff", fontSize: 28, fontWeight: "800" },
-  name: { fontSize: 24, fontWeight: "800", color: "#fff", marginBottom: 4 },
+  header: { alignItems: "center", marginBottom: 24, gap: 6 },
+  name: { fontSize: 24, fontWeight: "800", color: "#fff" },
   location: { fontSize: 14, color: "#666" },
+  tapHint: { fontSize: 11, color: "#444", marginTop: 2 },
   statsRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
   statCard: { flex: 1, backgroundColor: "#141414", borderRadius: 12, padding: 12, alignItems: "center", borderWidth: 1, borderColor: "#2a2a2a" },
   statValue: { fontSize: 22, fontWeight: "800", color: "#e63946", marginBottom: 2 },
@@ -149,7 +126,7 @@ const styles = StyleSheet.create({
   infoGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 16 },
   infoItem: { flex: 1, minWidth: "45%", backgroundColor: "#141414", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "#2a2a2a" },
   infoLabel: { fontSize: 11, color: "#555", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 },
-  infoValue: { fontSize: 16, color: "#fff", fontWeight: "600", textTransform: "capitalize" },
+  infoValue: { fontSize: 15, color: "#fff", fontWeight: "600", textTransform: "capitalize" },
   section: { marginBottom: 16 },
   sectionLabel: { fontSize: 12, fontWeight: "600", color: "#555", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 },
   sectionValue: { fontSize: 16, color: "#fff", fontWeight: "500", textTransform: "capitalize" },
@@ -165,5 +142,3 @@ const styles = StyleSheet.create({
   retryBtn: { backgroundColor: "#1a1a1a", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
   retryText: { color: "#fff", fontSize: 14 },
 });
-
-

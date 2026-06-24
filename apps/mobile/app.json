@@ -16,7 +16,9 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.fightfind.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "FightFind uses your location to find nearby sparring partners and gyms."
+        "NSLocationWhenInUseUsageDescription": "FightFind uses your location to find nearby sparring partners and gyms.",
+        "NSPhotoLibraryUsageDescription": "FightFind needs access to your photos to set a profile picture.",
+        "NSCameraUsageDescription": "FightFind needs camera access to take a profile picture."
       }
     },
     "android": {
@@ -28,7 +30,10 @@
       "package": "com.fightfind.app",
       "permissions": [
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "ACCESS_COARSE_LOCATION",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "CAMERA"
       ]
     },
     "web": {
@@ -42,6 +47,13 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "FightFind uses your location to find nearby sparring partners and gyms."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "FightFind needs access to your photos to set a profile picture.",
+          "cameraPermission": "FightFind needs camera access to take a profile picture."
         }
       ]
     ]
