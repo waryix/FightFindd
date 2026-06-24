@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator 
 import { router } from "expo-router";
 import { useState } from "react";
 import { supabase } from "../../src/services/supabase";
+import { API_URL } from "../../src/services/config";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -14,87 +15,33 @@ export default function LoginScreen() {
     if (!isValidEmail) return;
     setLoading(true);
     setError("");
-
     try {
-      // Check if fighter exists with this email
-      const response = await fetch(
-        `http://localhost:4000/api/fighters/email/${encodeURIComponent(email)}`
-      );
+      const response = await fetch(`${API_URL}/api/fighters/email/${encodeURIComponent(email)}`);
       const data = await response.json();
+      if (!data.fighter) { setError("No account found with this email. Please sign up first."); setLoading(false); return; }
 
-      if (!data.fighter) {
-        setError("No account found with this email. Please sign up first.");
-        setLoading(false);
-        return;
-      }
-
-      // Send OTP via Supabase
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email,
-        options: { shouldCreateUser: false },
-      });
-
-      if (otpError) {
-        setError(otpError.message);
-        return;
-      }
+      const { error: otpError } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+      if (otpError) { setError(otpError.message); return; }
 
       router.push({
         pathname: "/(auth)/otp",
-        params: {
-          email,
-          phone: data.fighter.phone,
-          otpMethod: "email",
-          mode: "login",
-          fighterId: data.fighter.id,
-        },
+        params: { email, phone: data.fighter.phone, otpMethod: "email", mode: "login", fighterId: data.fighter.id },
       });
-    } catch (err: any) {
-      setError("Could not connect to server. Try again.");
-    } finally {
-      setLoading(false);
-    }
+    } catch { setError("Could not connect to server. Try again."); }
+    finally { setLoading(false); }
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Welcome{"\n"}back</Text>
       <Text style={styles.subtitle}>Log in with your email address</Text>
-
       {error ? <Text style={styles.errorBox}>{error}</Text> : null}
-
       <Text style={styles.label}>Email Address</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="arjun@gmail.com"
-        placeholderTextColor="#444"
-        keyboardType="email-address"
-        autoCapitalize="none"
-        value={email}
-        onChangeText={setEmail}
-        color="#fff"
-        autoFocus
-      />
-
-      {isValidEmail && (
-        <View style={styles.methodHint}>
-          <Text style={styles.methodHintText}>
-            A 6-digit OTP will be sent to {email}
-          </Text>
-        </View>
-      )}
-
-      <TouchableOpacity
-        style={[styles.btn, !isValidEmail && styles.btnDisabled]}
-        onPress={handleContinue}
-        disabled={!isValidEmail || loading}
-      >
-        {loading
-          ? <ActivityIndicator color="#fff" />
-          : <Text style={styles.btnText}>Send OTP</Text>
-        }
+      <TextInput style={styles.input} placeholder="arjun@gmail.com" placeholderTextColor="#444" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} color="#fff" autoFocus />
+      {isValidEmail && <View style={styles.methodHint}><Text style={styles.methodHintText}>A 6-digit OTP will be sent to {email}</Text></View>}
+      <TouchableOpacity style={[styles.btn, !isValidEmail && styles.btnDisabled]} onPress={handleContinue} disabled={!isValidEmail || loading}>
+        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Send OTP</Text>}
       </TouchableOpacity>
-
       <TouchableOpacity onPress={() => router.replace("/(auth)/signup")}>
         <Text style={styles.switchText}>Don't have an account? Sign Up</Text>
       </TouchableOpacity>

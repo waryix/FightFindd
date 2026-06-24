@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Activi
 import { router } from "expo-router";
 import { useState, useEffect } from "react";
 import { getSession } from "../../src/store/session";
+import { API_URL } from "../../src/services/config";
 import type { Discipline, SkillLevel, WeightClass } from "@repo/types/fighter";
 
 const DISCIPLINES: Discipline[] = ["boxing", "mma", "kickboxing", "muay_thai", "bjj", "wrestling"];
@@ -10,11 +11,11 @@ const WEIGHT_CLASSES: WeightClass[] = ["flyweight", "bantamweight", "featherweig
 
 const WEIGHT_CLASS_RANGES: Record<WeightClass, string> = {
   flyweight: "up to 52kg",
-  bantamweight: "52–56kg",
-  featherweight: "56–60kg",
-  lightweight: "60–65kg",
-  welterweight: "65–70kg",
-  middleweight: "70–75kg",
+  bantamweight: "52ï¿½56kg",
+  featherweight: "56ï¿½60kg",
+  lightweight: "60ï¿½65kg",
+  welterweight: "65ï¿½70kg",
+  middleweight: "70ï¿½75kg",
   heavyweight: "75kg+",
 };
 
@@ -57,7 +58,7 @@ export default function EditProfileScreen() {
       const fighterId = await getSession();
       if (!fighterId) { router.replace("/"); return; }
 
-      const response = await fetch(`http://localhost:4000/api/fighters/${fighterId}`);
+      const response = await fetch(`${API_URL}/api/fighters/${fighterId}`);
       const data = await response.json();
 
       if (!response.ok) { setError("Could not load profile"); return; }
@@ -108,7 +109,7 @@ export default function EditProfileScreen() {
     try {
       const fighterId = await getSession();
 
-      const response = await fetch(`http://localhost:4000/api/fighters/${fighterId}`, {
+      const response = await fetch(`${API_URL}/api/fighters/${fighterId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -315,3 +316,4 @@ const styles = StyleSheet.create({
   errorBox: { backgroundColor: "#2a0a0a", borderRadius: 8, padding: 12, color: "#e63946", fontSize: 13, marginBottom: 16, borderWidth: 1, borderColor: "#e63946" },
   successBox: { backgroundColor: "#22c55e11", borderRadius: 8, padding: 12, color: "#22c55e", fontSize: 13, marginBottom: 16, borderWidth: 1, borderColor: "#22c55e33" },
 });
+

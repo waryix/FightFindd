@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Activi
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { getSession } from "../../../src/store/session";
+import { API_URL } from "../../../src/services/config";
 import type { Discipline } from "@repo/types/fighter";
 
 const DISCIPLINES: Discipline[] = ["boxing", "mma", "kickboxing", "muay_thai", "bjj", "wrestling"];
@@ -25,7 +26,7 @@ export default function RequestSparringScreen() {
   const disciplines = JSON.parse(receiverDisciplines ?? "[]") as Discipline[];
 
   const [discipline, setDiscipline] = useState<Discipline | null>(
-    disciplines.length === 1 ? disciplines[0] : null
+    disciplines.length === 1 ? disciplines[0]! : null
   );
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -54,7 +55,7 @@ export default function RequestSparringScreen() {
 
       const proposedDate = new Date(`${date}T${time}:00+05:30`).toISOString();
 
-      const response = await fetch("http://localhost:4000/api/matches", {
+      const response = await fetch(`${API_URL}/api/matches`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

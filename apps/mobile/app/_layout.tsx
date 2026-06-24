@@ -9,15 +9,16 @@ export default function RootLayout() {
   const [hasSession, setHasSession] = useState(false);
   const pathname = usePathname();
 
-  useEffect(() => {
-    checkSession();
-  }, []);
+  useEffect(() => { checkSession(); }, []);
 
   useEffect(() => {
-  if (!checking && hasSession && pathname === "/") {
-    router.replace("/(tabs)/discover");
-  }
-}, [checking, hasSession, pathname]);
+    if (checking) return;
+    if (hasSession && (pathname === "/" || pathname === "")) {
+      router.replace("/(tabs)/discover");
+    } else if (!hasSession && (pathname === "/" || pathname === "")) {
+      router.replace("/(auth)/login");
+    }
+  }, [checking, hasSession, pathname]);
 
   const checkSession = async () => {
     try {

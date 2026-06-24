@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from "react-native";
 import { router } from "expo-router";
 import { useState, useEffect } from "react";
+import { API_URL } from '../../src/services/config';
 import { getSession, clearSession } from "../../src/store/session";
 
 export default function ProfileScreen() {
@@ -15,7 +16,7 @@ export default function ProfileScreen() {
     try {
       const fighterId = await getSession();
       if (!fighterId) { router.replace("/"); return; }
-      const response = await fetch(`http://localhost:4000/api/fighters/${fighterId}`);
+      const response = await fetch(`${API_URL}/api/fighters/${fighterId}`);
       const data = await response.json();
       if (response.ok) setFighter(data.fighter);
     } catch (err) {
@@ -164,3 +165,5 @@ const styles = StyleSheet.create({
   retryBtn: { backgroundColor: "#1a1a1a", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
   retryText: { color: "#fff", fontSize: 14 },
 });
+
+

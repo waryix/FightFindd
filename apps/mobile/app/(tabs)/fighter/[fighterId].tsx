@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator
 import { router, useLocalSearchParams } from "expo-router";
 import { useState, useEffect } from "react";
 import { getSession } from "../../../src/store/session";
+import { API_URL } from "../../../src/services/config";
 
 const SKILL_COLOR: Record<string, string> = {
   beginner: "#22c55e",
@@ -22,7 +23,7 @@ export default function FighterDetailScreen() {
     try {
       const [id, response] = await Promise.all([
         getSession(),
-        fetch(`http://localhost:4000/api/fighters/${fighterId}`),
+        fetch(`${API_URL}/api/fighters/${fighterId}`),
       ]);
       setMyId(id);
       const data = await response.json();
@@ -83,47 +84,22 @@ export default function FighterDetailScreen() {
       </View>
 
       <View style={styles.infoGrid}>
-        {fighter.height_cm ? (
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Height</Text>
-            <Text style={styles.infoValue}>{fighter.height_cm} cm</Text>
-          </View>
-        ) : null}
-        {fighter.weight_kg ? (
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Weight</Text>
-            <Text style={styles.infoValue}>{fighter.weight_kg} kg</Text>
-          </View>
-        ) : null}
-        {fighter.age_years ? (
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Age</Text>
-            <Text style={styles.infoValue}>{fighter.age_years} yrs</Text>
-          </View>
-        ) : null}
-        <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Weight Class</Text>
-          <Text style={styles.infoValue}>{fighter.weight_class?.replace("_", " ")}</Text>
-        </View>
+        {fighter.height_cm ? <View style={styles.infoItem}><Text style={styles.infoLabel}>Height</Text><Text style={styles.infoValue}>{fighter.height_cm} cm</Text></View> : null}
+        {fighter.weight_kg ? <View style={styles.infoItem}><Text style={styles.infoLabel}>Weight</Text><Text style={styles.infoValue}>{fighter.weight_kg} kg</Text></View> : null}
+        {fighter.age_years ? <View style={styles.infoItem}><Text style={styles.infoLabel}>Age</Text><Text style={styles.infoValue}>{fighter.age_years} yrs</Text></View> : null}
+        <View style={styles.infoItem}><Text style={styles.infoLabel}>Weight Class</Text><Text style={styles.infoValue}>{fighter.weight_class?.replace("_", " ")}</Text></View>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>Disciplines</Text>
         <View style={styles.chips}>
           {fighter.discipline?.map((d: string) => (
-            <View key={d} style={styles.chip}>
-              <Text style={styles.chipText}>{d.replace("_", " ")}</Text>
-            </View>
+            <View key={d} style={styles.chip}><Text style={styles.chipText}>{d.replace("_", " ")}</Text></View>
           ))}
         </View>
       </View>
 
-      {fighter.bio ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>About</Text>
-          <Text style={styles.bioText}>{fighter.bio}</Text>
-        </View>
-      ) : null}
+      {fighter.bio ? <View style={styles.section}><Text style={styles.sectionLabel}>About</Text><Text style={styles.bioText}>{fighter.bio}</Text></View> : null}
 
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>Location</Text>
@@ -135,12 +111,7 @@ export default function FighterDetailScreen() {
           style={styles.requestBtn}
           onPress={() => router.push({
             pathname: "/(tabs)/request/[receiverId]",
-            params: {
-              receiverId: fighter.id,
-              receiverName: fighter.name,
-              receiverSkill: fighter.skill_level,
-              receiverDisciplines: JSON.stringify(fighter.discipline),
-            },
+            params: { receiverId: fighter.id, receiverName: fighter.name, receiverSkill: fighter.skill_level, receiverDisciplines: JSON.stringify(fighter.discipline) },
           })}
         >
           <Text style={styles.requestBtnText}>Request Sparring</Text>

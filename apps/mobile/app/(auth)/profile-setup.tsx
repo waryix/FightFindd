@@ -1,7 +1,9 @@
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import * as Location from "expo-location";
 import { saveSession } from "../../src/store/session";
+import { API_URL } from "../../src/services/config";
 import type { Discipline, SkillLevel, WeightClass } from "@repo/types/fighter";
 
 const DISCIPLINES: Discipline[] = ["boxing", "mma", "kickboxing", "muay_thai", "bjj", "wrestling"];
@@ -9,13 +11,8 @@ const SKILL_LEVELS: SkillLevel[] = ["beginner", "intermediate", "advanced", "pro
 const WEIGHT_CLASSES: WeightClass[] = ["flyweight", "bantamweight", "featherweight", "lightweight", "welterweight", "middleweight", "heavyweight"];
 
 const WEIGHT_CLASS_RANGES: Record<WeightClass, string> = {
-  flyweight: "up to 52kg",
-  bantamweight: "52–56kg",
-  featherweight: "56–60kg",
-  lightweight: "60–65kg",
-  welterweight: "65–70kg",
-  middleweight: "70–75kg",
-  heavyweight: "75kg+",
+  flyweight: "up to 52kg", bantamweight: "52ï¿½56kg", featherweight: "56ï¿½60kg",
+  lightweight: "60ï¿½65kg", welterweight: "65ï¿½70kg", middleweight: "70ï¿½75kg", heavyweight: "75kg+",
 };
 
 function suggestWeightClass(weightKg: number): WeightClass {
@@ -46,19 +43,32 @@ export default function ProfileSetupScreen() {
   const [weightClass, setWeightClass] = useState<WeightClass | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationStatus, setLocationStatus] = useState<"idle" | "getting" | "got" | "denied">("idle");
+
+  useEffect(() => { requestLocation(); }, []);
+
+  const requestLocation = async () => {
+    setLocationStatus("getting");
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") { setLocationStatus("denied"); return; }
+      const loc = await Location.getCurrentPositionAsync({});
+      setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+      setLocationStatus("got");
+    } catch {
+      setLocationStatus("denied");
+    }
+  };
 
   const toggleDiscipline = (d: Discipline) => {
-    setSelectedDisciplines(prev =>
-      prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]
-    );
+    setSelectedDisciplines(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
   };
 
   const handleWeightChange = (val: string) => {
     setWeightKg(val);
     const kg = parseFloat(val);
-    if (!isNaN(kg) && kg > 0) {
-      setWeightClass(suggestWeightClass(kg));
-    }
+    if (!isNaN(kg) && kg > 0) setWeightClass(suggestWeightClass(kg));
   };
 
   const handleSubmit = async () => {
@@ -66,25 +76,20 @@ export default function ProfileSetupScreen() {
       setError("Please fill in all required fields");
       return;
     }
-
     setLoading(true);
     setError("");
-
     try {
-      const response = await fetch("http://localhost:4000/api/fighters", {
+      const response = await fetch(`${API_URL}/api/fighters`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name,
-          city,
-          state,
+          name, city, state,
           phone: phone ?? `+91${Date.now()}`,
           email: email ?? null,
-          latitude: 12.9716,
-          longitude: 77.5946,
+          latitude: coords?.lat ?? 12.9716,
+          longitude: coords?.lng ?? 77.5946,
           discipline: selectedDisciplines,
-          skillLevel,
-          weightClass,
+          skillLevel, weightClass,
           ageYears: parseInt(age) || 0,
           yearsExperience: parseInt(experience) || 0,
           heightCm: heightCm ? parseInt(heightCm) : null,
@@ -94,14 +99,8 @@ export default function ProfileSetupScreen() {
           bio: bio.trim() || null,
         }),
       });
-
       const data = await response.json();
-
-      if (!response.ok) {
-        setError(`Error: ${data.error}`);
-        return;
-      }
-
+      if (!response.ok) { setError(`Error: ${data.error}`); return; }
       await saveSession(data.fighter.id);
       router.replace("/(tabs)/discover");
     } catch (err: any) {
@@ -116,12 +115,22 @@ export default function ProfileSetupScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Complete your{"\n"}fighter profile</Text>
-      <Text style={styles.subtitle}>{phone} · {email}</Text>
+      <Text style={styles.subtitle}>{phone} ï¿½ {email}</Text>
+
+      {locationStatus === "got" && (
+        <View style={styles.locationBanner}>
+          <Text style={styles.locationBannerText}>Location captured ï¿½ you'll appear in local searches</Text>
+        </View>
+      )}
+      {locationStatus === "denied" && (
+        <View style={styles.locationBannerWarn}>
+          <Text style={styles.locationBannerWarnText}>Location denied ï¿½ defaulting to Bengaluru coords. You can update later.</Text>
+        </View>
+      )}
 
       {error ? <Text style={styles.errorBox}>{error}</Text> : null}
 
       <Text style={styles.sectionTitle}>Basic Info</Text>
-
       <Text style={styles.label}>Full Name *</Text>
       <TextInput style={styles.input} placeholder="e.g. Arjun Singh" placeholderTextColor="#444" value={name} onChangeText={setName} color="#fff" />
 
@@ -148,7 +157,6 @@ export default function ProfileSetupScreen() {
       </View>
 
       <Text style={styles.sectionTitle}>Physical Stats</Text>
-
       <View style={styles.row}>
         <View style={styles.halfInput}>
           <Text style={styles.label}>Height (cm)</Text>
@@ -163,7 +171,7 @@ export default function ProfileSetupScreen() {
       {weightKg && !isNaN(parseFloat(weightKg)) && (
         <View style={styles.suggestionBox}>
           <Text style={styles.suggestionText}>
-            Suggested weight class: <Text style={styles.suggestionHighlight}>{suggestWeightClass(parseFloat(weightKg)).replace("_", " ")}</Text> ({WEIGHT_CLASS_RANGES[suggestWeightClass(parseFloat(weightKg))]})
+            Suggested: <Text style={styles.suggestionHighlight}>{suggestWeightClass(parseFloat(weightKg)).replace("_", " ")}</Text> ({WEIGHT_CLASS_RANGES[suggestWeightClass(parseFloat(weightKg))]})
           </Text>
         </View>
       )}
@@ -171,23 +179,14 @@ export default function ProfileSetupScreen() {
       <Text style={styles.label}>Weight Class * (tap to override)</Text>
       <View style={styles.chips}>
         {WEIGHT_CLASSES.map(w => (
-          <TouchableOpacity
-            key={w}
-            style={[styles.chip, weightClass === w && styles.chipActive]}
-            onPress={() => setWeightClass(w)}
-          >
-            <Text style={[styles.chipText, weightClass === w && styles.chipTextActive]}>
-              {w.replace("_", " ")}
-            </Text>
-            <Text style={[styles.chipSub, weightClass === w && styles.chipSubActive]}>
-              {WEIGHT_CLASS_RANGES[w]}
-            </Text>
+          <TouchableOpacity key={w} style={[styles.chip, weightClass === w && styles.chipActive]} onPress={() => setWeightClass(w)}>
+            <Text style={[styles.chipText, weightClass === w && styles.chipTextActive]}>{w.replace("_", " ")}</Text>
+            <Text style={[styles.chipSub, weightClass === w && styles.chipSubActive]}>{WEIGHT_CLASS_RANGES[w]}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
       <Text style={styles.sectionTitle}>Fighting Experience</Text>
-
       <View style={styles.row}>
         <View style={styles.halfInput}>
           <Text style={styles.label}>Amateur Fights</Text>
@@ -200,7 +199,6 @@ export default function ProfileSetupScreen() {
       </View>
 
       <Text style={styles.sectionTitle}>Style & Skills</Text>
-
       <Text style={styles.label}>Disciplines *</Text>
       <View style={styles.chips}>
         {DISCIPLINES.map(d => (
@@ -220,28 +218,11 @@ export default function ProfileSetupScreen() {
       </View>
 
       <Text style={styles.sectionTitle}>About You</Text>
-
       <Text style={styles.label}>Bio (optional)</Text>
-      <TextInput
-        style={styles.textArea}
-        placeholder="Tell potential sparring partners about your style, goals, preferred training times..."
-        placeholderTextColor="#444"
-        value={bio}
-        onChangeText={setBio}
-        multiline
-        numberOfLines={4}
-        color="#fff"
-        textAlignVertical="top"
-      />
+      <TextInput style={styles.textArea} placeholder="Tell potential sparring partners about your style, goals..." placeholderTextColor="#444" value={bio} onChangeText={setBio} multiline numberOfLines={4} color="#fff" textAlignVertical="top" />
 
-      <TouchableOpacity
-        style={[styles.btn, !isValid && styles.btnDisabled]}
-        onPress={handleSubmit}
-        disabled={!isValid || loading}
-      >
-        <Text style={styles.btnText}>
-          {loading ? "Creating profile..." : "Start Finding Partners ?"}
-        </Text>
+      <TouchableOpacity style={[styles.btn, !isValid && styles.btnDisabled]} onPress={handleSubmit} disabled={!isValid || loading}>
+        <Text style={styles.btnText}>{loading ? "Creating profile..." : "Start Finding Partners ?"}</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -251,8 +232,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0a0a0a" },
   content: { padding: 24, paddingBottom: 60 },
   title: { fontSize: 30, fontWeight: "800", color: "#fff", marginBottom: 8, lineHeight: 38 },
-  subtitle: { fontSize: 13, color: "#555", marginBottom: 24 },
-  sectionTitle: { fontSize: 16, fontWeight: "700", color: "#fff", marginTop: 32, marginBottom: 4, borderBottomWidth: 1, borderBottomColor: "#1a1a1a", paddingBottom: 8 },
+  subtitle: { fontSize: 13, color: "#555", marginBottom: 16 },
+  sectionTitle: { fontSize: 16, fontWeight: "700", color: "#fff", marginTop: 28, marginBottom: 4, borderBottomWidth: 1, borderBottomColor: "#1a1a1a", paddingBottom: 8 },
   label: { fontSize: 12, fontWeight: "600", color: "#555", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, marginTop: 16 },
   input: { backgroundColor: "#1a1a1a", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, borderWidth: 1, borderColor: "#2a2a2a" },
   textArea: { backgroundColor: "#1a1a1a", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, borderWidth: 1, borderColor: "#2a2a2a", minHeight: 100 },
@@ -268,6 +249,10 @@ const styles = StyleSheet.create({
   suggestionBox: { backgroundColor: "#22c55e11", borderRadius: 8, padding: 10, borderWidth: 1, borderColor: "#22c55e33", marginBottom: 8 },
   suggestionText: { color: "#888", fontSize: 13 },
   suggestionHighlight: { color: "#22c55e", fontWeight: "700", textTransform: "capitalize" },
+  locationBanner: { backgroundColor: "#22c55e11", borderRadius: 8, padding: 10, borderWidth: 1, borderColor: "#22c55e33", marginBottom: 12 },
+  locationBannerText: { color: "#22c55e", fontSize: 13 },
+  locationBannerWarn: { backgroundColor: "#f59e0b11", borderRadius: 8, padding: 10, borderWidth: 1, borderColor: "#f59e0b33", marginBottom: 12 },
+  locationBannerWarnText: { color: "#f59e0b", fontSize: 13 },
   btn: { backgroundColor: "#e63946", paddingVertical: 16, borderRadius: 12, alignItems: "center", marginTop: 32 },
   btnDisabled: { opacity: 0.4 },
   btnText: { color: "#fff", fontSize: 17, fontWeight: "700" },

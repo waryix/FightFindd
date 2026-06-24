@@ -1,6 +1,8 @@
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useState, useEffect } from "react";
+import { router } from "expo-router";
 import { getSession } from "../../src/store/session";
+import { API_URL } from "../../src/services/config";
 
 type MatchStatus = "pending" | "accepted" | "declined" | "completed" | "cancelled";
 
@@ -27,127 +29,114 @@ export default function MatchesScreen() {
   const [tab, setTab] = useState<"received" | "sent">("received");
   const [myId, setMyId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadMyId();
-  }, []);
+  useEffect(() => { loadMyId(); }, []);
+  useEffect(() => { if (myId) fetchMatches(); }, [myId]);
 
-  useEffect(() => {
-    if (myId) fetchMatches();
-  }, [myId]);
-
-  const loadMyId = async () => {
-    const id = await getSession();
-    setMyId(id);
-  };
+  const loadMyId = async () => { const id = await getSession(); setMyId(id); };
 
   const fetchMatches = async () => {
     if (!myId) return;
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(
-        `http://localhost:4000/api/matches?fighter_id=${myId}`
-      );
+      const response = await fetch(`${API_URL}/api/matches?fighter_id=${myId}`);
       const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error);
-        return;
-      }
-
+      if (!response.ok) { setError(data.error); return; }
       setMatches(data.matches);
-    } catch (err: any) {
-      setError("Could not connect to server");
-    } finally {
-      setLoading(false);
-    }
+    } catch { setError("Could not connect to server"); }
+    finally { setLoading(false); }
   };
 
   const updateStatus = async (id: string, status: MatchStatus) => {
     try {
-      await fetch(`http://localhost:4000/api/matches/${id}/status`, {
+      await fetch(`${API_URL}/api/matches/${id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
       fetchMatches();
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const received = matches.filter(m => m.receiver_id === myId);
   const sent = matches.filter(m => m.sender_id === myId);
   const displayed = tab === "received" ? received : sent;
 
-  const renderMatch = ({ item }: { item: any }) => (
-    <View style={styles.card}>
-      <View style={styles.cardTop}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {tab === "received" ? "FROM" : "TO"}
-          </Text>
-        </View>
-        <View style={styles.matchInfo}>
-          <Text style={styles.discipline}>{item.discipline.replace("_", " ")}</Text>
-          <Text style={styles.location}>{item.proposed_location}</Text>
-          <Text style={styles.date}>
-            {new Date(item.proposed_date).toLocaleDateString("en-IN", {
-              day: "numeric",
-              month: "short",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
+  const renderMatch = ({ item }: { item: any }) => {
+    const otherFighter = tab === "received" ? item.sender : item.receiver;
+    const initials = otherFighter?.name
+      ? otherFighter.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
+      : "??";
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardTop}>
+          <TouchableOpacity
+            style={styles.avatar}
+            onPress={() => otherFighter && router.push({
+              pathname: "/(tabs)/fighter/[fighterId]",
+              params: { fighterId: otherFighter.id },
             })}
-          </Text>
+          >
+            <Text style={styles.avatarText}>{initials}</Text>
+          </TouchableOpacity>
+
+          <View style={styles.matchInfo}>
+            <Text style={styles.fighterName}>
+              {otherFighter?.name ?? "Unknown Fighter"}
+            </Text>
+            <Text style={styles.discipline}>{item.discipline.replace("_", " ")}</Text>
+            <Text style={styles.location}>{item.proposed_location}</Text>
+            <Text style={styles.date}>
+              {new Date(item.proposed_date).toLocaleDateString("en-IN", {
+                day: "numeric", month: "short", year: "numeric",
+                hour: "2-digit", minute: "2-digit",
+              })}
+            </Text>
+          </View>
+
+          <View style={[styles.statusBadge, { backgroundColor: STATUS_BG[item.status as MatchStatus], borderColor: STATUS_COLOR[item.status as MatchStatus] + "55" }]}>
+            <Text style={[styles.statusText, { color: STATUS_COLOR[item.status as MatchStatus] }]}>
+              {item.status}
+            </Text>
+          </View>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: STATUS_BG[item.status as MatchStatus], borderColor: STATUS_COLOR[item.status as MatchStatus] + "55" }]}>
-          <Text style={[styles.statusText, { color: STATUS_COLOR[item.status as MatchStatus] }]}>
-            {item.status}
-          </Text>
-        </View>
+
+        {otherFighter && (
+          <View style={styles.fighterMeta}>
+            <Text style={styles.fighterMetaText}>
+              {otherFighter.skill_level} · {otherFighter.weight_class?.replace("_", " ")} · {otherFighter.city}
+            </Text>
+          </View>
+        )}
+
+        {item.message ? <Text style={styles.message}>"{item.message}"</Text> : null}
+
+        {tab === "received" && item.status === "pending" && (
+          <View style={styles.actions}>
+            <TouchableOpacity style={styles.declineBtn} onPress={() => updateStatus(item.id, "declined")}>
+              <Text style={styles.declineBtnText}>Decline</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.acceptBtn} onPress={() => updateStatus(item.id, "accepted")}>
+              <Text style={styles.acceptBtnText}>Accept</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {item.status === "accepted" && (
+          <TouchableOpacity style={styles.completeBtn} onPress={() => updateStatus(item.id, "completed")}>
+            <Text style={styles.completeBtnText}>Mark as Completed</Text>
+          </TouchableOpacity>
+        )}
+
+        {tab === "sent" && item.status === "pending" && (
+          <TouchableOpacity style={styles.cancelBtn} onPress={() => updateStatus(item.id, "cancelled")}>
+            <Text style={styles.cancelBtnText}>Cancel Request</Text>
+          </TouchableOpacity>
+        )}
       </View>
-
-      {item.message ? (
-        <Text style={styles.message}>"{item.message}"</Text>
-      ) : null}
-
-      {tab === "received" && item.status === "pending" && (
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={styles.declineBtn}
-            onPress={() => updateStatus(item.id, "declined")}
-          >
-            <Text style={styles.declineBtnText}>Decline</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.acceptBtn}
-            onPress={() => updateStatus(item.id, "accepted")}
-          >
-            <Text style={styles.acceptBtnText}>Accept</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {item.status === "accepted" && (
-        <TouchableOpacity
-          style={styles.completeBtn}
-          onPress={() => updateStatus(item.id, "completed")}
-        >
-          <Text style={styles.completeBtnText}>Mark as Completed</Text>
-        </TouchableOpacity>
-      )}
-
-      {tab === "sent" && item.status === "pending" && (
-        <TouchableOpacity
-          style={styles.cancelBtn}
-          onPress={() => updateStatus(item.id, "cancelled")}
-        >
-          <Text style={styles.cancelBtnText}>Cancel Request</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -157,18 +146,12 @@ export default function MatchesScreen() {
       </View>
 
       <View style={styles.tabRow}>
-        <TouchableOpacity
-          style={[styles.tabBtn, tab === "received" && styles.tabBtnActive]}
-          onPress={() => setTab("received")}
-        >
+        <TouchableOpacity style={[styles.tabBtn, tab === "received" && styles.tabBtnActive]} onPress={() => setTab("received")}>
           <Text style={[styles.tabBtnText, tab === "received" && styles.tabBtnTextActive]}>
             Received {received.length > 0 ? `(${received.length})` : ""}
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabBtn, tab === "sent" && styles.tabBtnActive]}
-          onPress={() => setTab("sent")}
-        >
+        <TouchableOpacity style={[styles.tabBtn, tab === "sent" && styles.tabBtnActive]} onPress={() => setTab("sent")}>
           <Text style={[styles.tabBtnText, tab === "sent" && styles.tabBtnTextActive]}>
             Sent {sent.length > 0 ? `(${sent.length})` : ""}
           </Text>
@@ -176,36 +159,16 @@ export default function MatchesScreen() {
       </View>
 
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color="#e63946" size="large" />
-          <Text style={styles.loadingText}>Loading matches...</Text>
-        </View>
+        <View style={styles.center}><ActivityIndicator color="#e63946" size="large" /><Text style={styles.loadingText}>Loading matches...</Text></View>
       ) : error ? (
-        <View style={styles.center}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={fetchMatches}>
-            <Text style={styles.retryBtnText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
+        <View style={styles.center}><Text style={styles.errorText}>{error}</Text><TouchableOpacity style={styles.retryBtn} onPress={fetchMatches}><Text style={styles.retryBtnText}>Retry</Text></TouchableOpacity></View>
       ) : displayed.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyText}>
-            {tab === "received" ? "No requests received yet" : "No requests sent yet"}
-          </Text>
-          <Text style={styles.emptySubText}>
-            {tab === "received"
-              ? "When fighters request to spar with you, they'll appear here"
-              : "Go to Discover and send a sparring request"}
-          </Text>
+          <Text style={styles.emptyText}>{tab === "received" ? "No requests received yet" : "No requests sent yet"}</Text>
+          <Text style={styles.emptySubText}>{tab === "received" ? "When fighters request to spar with you, they'll appear here" : "Go to Discover and send a sparring request"}</Text>
         </View>
       ) : (
-        <FlatList
-          data={displayed}
-          keyExtractor={item => item.id}
-          renderItem={renderMatch}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-        />
+        <FlatList data={displayed} keyExtractor={item => item.id} renderItem={renderMatch} contentContainerStyle={styles.list} showsVerticalScrollIndicator={false} />
       )}
     </View>
   );
@@ -223,15 +186,18 @@ const styles = StyleSheet.create({
   tabBtnTextActive: { color: "#fff" },
   list: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
   card: { backgroundColor: "#141414", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "#2a2a2a" },
-  cardTop: { flexDirection: "row", gap: 12, marginBottom: 12, alignItems: "flex-start" },
-  avatar: { width: 44, height: 44, borderRadius: 10, backgroundColor: "#1a1a1a", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#2a2a2a" },
-  avatarText: { color: "#666", fontSize: 10, fontWeight: "700" },
-  matchInfo: { flex: 1, gap: 3 },
-  discipline: { fontSize: 15, fontWeight: "700", color: "#fff", textTransform: "capitalize" },
-  location: { fontSize: 13, color: "#888" },
-  date: { fontSize: 12, color: "#555" },
+  cardTop: { flexDirection: "row", gap: 12, marginBottom: 8, alignItems: "flex-start" },
+  avatar: { width: 46, height: 46, borderRadius: 23, backgroundColor: "#e63946", alignItems: "center", justifyContent: "center" },
+  avatarText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  matchInfo: { flex: 1, gap: 2 },
+  fighterName: { fontSize: 16, fontWeight: "700", color: "#fff" },
+  discipline: { fontSize: 13, color: "#e63946", fontWeight: "600", textTransform: "capitalize" },
+  location: { fontSize: 12, color: "#888" },
+  date: { fontSize: 11, color: "#555" },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
   statusText: { fontSize: 11, fontWeight: "700", textTransform: "capitalize" },
+  fighterMeta: { backgroundColor: "#1a1a1a", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 8 },
+  fighterMetaText: { color: "#666", fontSize: 12, textTransform: "capitalize" },
   message: { fontSize: 13, color: "#666", fontStyle: "italic", marginBottom: 12, lineHeight: 18 },
   actions: { flexDirection: "row", gap: 10 },
   declineBtn: { flex: 1, backgroundColor: "#1a1a1a", borderRadius: 10, paddingVertical: 10, alignItems: "center", borderWidth: 1, borderColor: "#2a2a2a" },
