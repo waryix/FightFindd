@@ -1,25 +1,17 @@
-import { createRequire } from "module";
-import path from "path";
-import { fileURLToPath } from "url";
+import * as fs from "fs";
+import * as path from "path";
 
-const require = createRequire(import.meta.url);
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const { createRequire } = require("module");
+const localRequire = createRequire(__filename);
 
-const {
-  initializeApp,
-  getApps,
-  cert,
-} = require("firebase-admin/app");
+const serviceAccountPath = path.join(__dirname, "../../fightfind-2d9c6-firebase-adminsdk-fbsvc-a284bb0a86.json");
+const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, "utf8"));
 
-const { getMessaging } = require("firebase-admin/messaging");
-
-const serviceAccount = require(path.join(__dirname, "../../fightfind-2d9c6-firebase-adminsdk-fbsvc-a284bb0a86.json"));
+const { initializeApp, getApps, cert } = localRequire("firebase-admin/app");
+const { getMessaging } = localRequire("firebase-admin/messaging");
 
 if (!getApps().length) {
-  initializeApp({
-    credential: cert(serviceAccount),
-  });
+  initializeApp({ credential: cert(serviceAccount) });
 }
 
 export async function sendPushNotification(
