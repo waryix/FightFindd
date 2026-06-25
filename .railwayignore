@@ -1,0 +1,5 @@
+apps/mobile
+apps/web
+apps/docs
+node_modules
+.git
