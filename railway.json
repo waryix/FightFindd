@@ -1,6 +1,7 @@
 {
   "build": {
-    "buildCommand": "pnpm install && pnpm --filter api build"
+    "builder": "NIXPACKS",
+    "buildCommand": "npm install -g pnpm && pnpm install --no-frozen-lockfile && pnpm --filter api build"
   },
   "deploy": {
     "startCommand": "node apps/api/dist/index.js",
