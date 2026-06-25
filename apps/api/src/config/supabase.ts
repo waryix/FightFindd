@@ -13,6 +13,6 @@ if (!supabaseUrl || !supabaseKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   realtime: {
-    transport: ws,
+    transport: ws as any,
   },
 });
