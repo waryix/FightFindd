@@ -1,29 +1,22 @@
-import { Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const FIGHTER_KEY = "fightfind_fighter_id";
+const TOKEN_KEY = "fightfind_token";
 
-export async function saveSession(fighterId: string) {
-  if (Platform.OS === "web") {
-    localStorage.setItem(FIGHTER_KEY, fighterId);
-    return;
-  }
-  const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
+export async function saveSession(fighterId: string, token?: string) {
   await AsyncStorage.setItem(FIGHTER_KEY, fighterId);
+  if (token) await AsyncStorage.setItem(TOKEN_KEY, token);
 }
 
 export async function getSession(): Promise<string | null> {
-  if (Platform.OS === "web") {
-    return localStorage.getItem(FIGHTER_KEY);
-  }
-  const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
   return await AsyncStorage.getItem(FIGHTER_KEY);
 }
 
+export async function getToken(): Promise<string | null> {
+  return await AsyncStorage.getItem(TOKEN_KEY);
+}
+
 export async function clearSession() {
-  if (Platform.OS === "web") {
-    localStorage.removeItem(FIGHTER_KEY);
-    return;
-  }
-  const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
   await AsyncStorage.removeItem(FIGHTER_KEY);
+  await AsyncStorage.removeItem(TOKEN_KEY);
 }

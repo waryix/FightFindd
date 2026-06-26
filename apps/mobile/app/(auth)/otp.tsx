@@ -28,33 +28,29 @@ export default function OtpScreen() {
 
   const handleVerify = async () => {
     const code = otp.join("");
-    if (code.length !== 6) {
-      setError("Enter the complete 6-digit OTP");
-      return;
-    }
+    if (code.length !== 6) { setError("Enter the complete 6-digit OTP"); return; }
 
     setLoading(true);
     setError("");
 
     try {
-      const { error: verifyError } = await supabase.auth.verifyOtp({
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
         email,
         token: code,
         type: "email",
       });
 
-      if (verifyError) {
-        setError(verifyError.message);
-        return;
-      }
+      if (verifyError) { setError(verifyError.message); return; }
+
+      const token = data.session?.access_token;
 
       if (mode === "login") {
-        await saveSession(fighterId);
+        await saveSession(fighterId, token);
         router.replace("/(tabs)/discover");
       } else {
         router.replace({
           pathname: "/(auth)/profile-setup",
-          params: { phone, email, name },
+          params: { phone, email, name, token: token ?? "" },
         });
       }
     } catch (err: any) {
@@ -106,9 +102,7 @@ export default function OtpScreen() {
       >
         {loading
           ? <ActivityIndicator color="#fff" />
-          : <Text style={styles.btnText}>
-              {mode === "login" ? "Log In" : "Verify & Continue"}
-            </Text>
+          : <Text style={styles.btnText}>{mode === "login" ? "Log In" : "Verify & Continue"}</Text>
         }
       </TouchableOpacity>
 

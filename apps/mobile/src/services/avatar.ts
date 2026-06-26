@@ -1,14 +1,13 @@
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "./supabase";
+import { Platform } from "react-native";
 
 export async function pickAndUploadAvatar(fighterId: string): Promise<string | null> {
-  // Request permissions
   const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (status !== "granted") {
     throw new Error("Camera roll permission denied");
   }
 
-  // Pick image
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ImagePicker.MediaTypeOptions.Images,
     allowsEditing: true,
@@ -20,15 +19,21 @@ export async function pickAndUploadAvatar(fighterId: string): Promise<string | n
 
   const asset = result.assets[0];
   const uri = asset.uri;
-  const ext = uri.split(".").pop()?.toLowerCase() ?? "jpg";
-  const fileName = `${fighterId}.${ext}`;
-  const contentType = ext === "png" ? "image/png" : "image/jpeg";
+  const fileName = `${fighterId}.jpg`;
+  const contentType = "image/jpeg";
 
-  // Convert to blob
-  const response = await fetch(uri);
-  const blob = await response.blob();
+  let blob: Blob;
 
-  // Upload to Supabase Storage
+  if (Platform.OS === "web") {
+    // On web, uri is already a blob URL or data URL
+    const response = await fetch(uri);
+    blob = await response.blob();
+  } else {
+    // On native, fetch the file URI
+    const response = await fetch(uri);
+    blob = await response.blob();
+  }
+
   const { error } = await supabase.storage
     .from("avatars")
     .upload(fileName, blob, {
@@ -38,7 +43,7 @@ export async function pickAndUploadAvatar(fighterId: string): Promise<string | n
 
   if (error) throw new Error(error.message);
 
-  // Get public URL
+  // Get clean public URL without any blob reference
   const { data } = supabase.storage
     .from("avatars")
     .getPublicUrl(fileName);
@@ -46,9 +51,9 @@ export async function pickAndUploadAvatar(fighterId: string): Promise<string | n
   return data.publicUrl;
 }
 
-export function getAvatarUrl(fighterId: string, ext = "jpg"): string {
+export function getAvatarUrl(fighterId: string): string {
   const { data } = supabase.storage
     .from("avatars")
-    .getPublicUrl(`${fighterId}.${ext}`);
+    .getPublicUrl(`${fighterId}.jpg`);
   return data.publicUrl;
 }

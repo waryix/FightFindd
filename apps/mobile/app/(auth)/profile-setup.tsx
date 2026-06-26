@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState, useEffect } from "react";
 import * as Location from "expo-location";
@@ -11,8 +11,8 @@ const SKILL_LEVELS: SkillLevel[] = ["beginner", "intermediate", "advanced", "pro
 const WEIGHT_CLASSES: WeightClass[] = ["flyweight", "bantamweight", "featherweight", "lightweight", "welterweight", "middleweight", "heavyweight"];
 
 const WEIGHT_CLASS_RANGES: Record<WeightClass, string> = {
-  flyweight: "up to 52kg", bantamweight: "52ï¿½56kg", featherweight: "56ï¿½60kg",
-  lightweight: "60ï¿½65kg", welterweight: "65ï¿½70kg", middleweight: "70ï¿½75kg", heavyweight: "75kg+",
+  flyweight: "up to 52kg", bantamweight: "52–56kg", featherweight: "56–60kg",
+  lightweight: "60–65kg", welterweight: "65–70kg", middleweight: "70–75kg", heavyweight: "75kg+",
 };
 
 function suggestWeightClass(weightKg: number): WeightClass {
@@ -26,7 +26,7 @@ function suggestWeightClass(weightKg: number): WeightClass {
 }
 
 export default function ProfileSetupScreen() {
-  const { phone, email, name: passedName } = useLocalSearchParams<{ phone: string; email: string; name: string }>();
+  const { phone, email, name: passedName, token } = useLocalSearchParams<{ phone: string; email: string; name: string; token: string }>();
 
   const [name, setName] = useState(passedName ?? "");
   const [city, setCity] = useState("");
@@ -56,9 +56,7 @@ export default function ProfileSetupScreen() {
       const loc = await Location.getCurrentPositionAsync({});
       setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
       setLocationStatus("got");
-    } catch {
-      setLocationStatus("denied");
-    }
+    } catch { setLocationStatus("denied"); }
   };
 
   const toggleDiscipline = (d: Discipline) => {
@@ -99,9 +97,11 @@ export default function ProfileSetupScreen() {
           bio: bio.trim() || null,
         }),
       });
+
       const data = await response.json();
       if (!response.ok) { setError(`Error: ${data.error}`); return; }
-      await saveSession(data.fighter.id);
+
+      await saveSession(data.fighter.id, token);
       router.replace("/(tabs)/discover");
     } catch (err: any) {
       setError(`Network error: ${err.message}`);
@@ -115,19 +115,10 @@ export default function ProfileSetupScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Complete your{"\n"}fighter profile</Text>
-      <Text style={styles.subtitle}>{phone} ï¿½ {email}</Text>
+      <Text style={styles.subtitle}>{phone} · {email}</Text>
 
-      {locationStatus === "got" && (
-        <View style={styles.locationBanner}>
-          <Text style={styles.locationBannerText}>Location captured ï¿½ you'll appear in local searches</Text>
-        </View>
-      )}
-      {locationStatus === "denied" && (
-        <View style={styles.locationBannerWarn}>
-          <Text style={styles.locationBannerWarnText}>Location denied ï¿½ defaulting to Bengaluru coords. You can update later.</Text>
-        </View>
-      )}
-
+      {locationStatus === "got" && <View style={styles.locationBanner}><Text style={styles.locationBannerText}>Location captured</Text></View>}
+      {locationStatus === "denied" && <View style={styles.locationBannerWarn}><Text style={styles.locationBannerWarnText}>Location denied — defaulting to Bengaluru</Text></View>}
       {error ? <Text style={styles.errorBox}>{error}</Text> : null}
 
       <Text style={styles.sectionTitle}>Basic Info</Text>
@@ -176,7 +167,7 @@ export default function ProfileSetupScreen() {
         </View>
       )}
 
-      <Text style={styles.label}>Weight Class * (tap to override)</Text>
+      <Text style={styles.label}>Weight Class *</Text>
       <View style={styles.chips}>
         {WEIGHT_CLASSES.map(w => (
           <TouchableOpacity key={w} style={[styles.chip, weightClass === w && styles.chipActive]} onPress={() => setWeightClass(w)}>
@@ -219,7 +210,7 @@ export default function ProfileSetupScreen() {
 
       <Text style={styles.sectionTitle}>About You</Text>
       <Text style={styles.label}>Bio (optional)</Text>
-      <TextInput style={styles.textArea} placeholder="Tell potential sparring partners about your style, goals..." placeholderTextColor="#444" value={bio} onChangeText={setBio} multiline numberOfLines={4} color="#fff" textAlignVertical="top" />
+      <TextInput style={styles.textArea} placeholder="Tell potential sparring partners about your style..." placeholderTextColor="#444" value={bio} onChangeText={setBio} multiline numberOfLines={4} color="#fff" textAlignVertical="top" />
 
       <TouchableOpacity style={[styles.btn, !isValid && styles.btnDisabled]} onPress={handleSubmit} disabled={!isValid || loading}>
         <Text style={styles.btnText}>{loading ? "Creating profile..." : "Start Finding Partners ?"}</Text>
