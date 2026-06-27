@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useState, useEffect } from "react";
 import { router } from "expo-router";
-import { getSession } from "../../src/store/session";
+import { getSession, getToken } from "../../src/store/session";
 import { API_URL } from "../../src/services/config";
 
 type MatchStatus = "pending" | "accepted" | "declined" | "completed" | "cancelled";
@@ -28,18 +28,26 @@ export default function MatchesScreen() {
   const [error, setError] = useState("");
   const [tab, setTab] = useState<"received" | "sent">("received");
   const [myId, setMyId] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => { loadMyId(); }, []);
   useEffect(() => { if (myId) fetchMatches(); }, [myId]);
 
-  const loadMyId = async () => { const id = await getSession(); setMyId(id); };
+  const loadMyId = async () => {
+    const [id, tok] = await Promise.all([getSession(), getToken()]);
+    setMyId(id);
+    setToken(tok);
+  };
 
   const fetchMatches = async () => {
     if (!myId) return;
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`${API_URL}/api/matches?fighter_id=${myId}`);
+      const tok = await getToken();
+      const response = await fetch(`${API_URL}/api/matches?fighter_id=${myId}`, {
+        headers: tok ? { Authorization: `Bearer ${tok}` } : {},
+      });
       const data = await response.json();
       if (!response.ok) { setError(data.error); return; }
       setMatches(data.matches);
@@ -49,9 +57,13 @@ export default function MatchesScreen() {
 
   const updateStatus = async (id: string, status: MatchStatus) => {
     try {
+      const tok = await getToken();
       await fetch(`${API_URL}/api/matches/${id}/status`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(tok ? { Authorization: `Bearer ${tok}` } : {}),
+        },
         body: JSON.stringify({ status }),
       });
       fetchMatches();
@@ -82,9 +94,7 @@ export default function MatchesScreen() {
           </TouchableOpacity>
 
           <View style={styles.matchInfo}>
-            <Text style={styles.fighterName}>
-              {otherFighter?.name ?? "Unknown Fighter"}
-            </Text>
+            <Text style={styles.fighterName}>{otherFighter?.name ?? "Unknown Fighter"}</Text>
             <Text style={styles.discipline}>{item.discipline.replace("_", " ")}</Text>
             <Text style={styles.location}>{item.proposed_location}</Text>
             <Text style={styles.date}>

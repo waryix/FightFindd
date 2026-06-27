@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import * as Location from "expo-location";
 import { getSession } from "../../src/store/session";
+import { API_URL } from "../../src/services/config";
 import type { Discipline, SkillLevel, WeightClass } from "@repo/types/fighter";
 
 const DISCIPLINES: Discipline[] = ["boxing", "mma", "kickboxing", "muay_thai", "bjj", "wrestling"];
@@ -91,7 +92,7 @@ export default function DiscoverScreen() {
         params.append("lng", location.lng.toString());
         params.append("radius_km", f.radiusKm || "25");
       }
-      const response = await fetch(`http://localhost:4000/api/fighters?${params.toString()}`);
+      const response = await fetch(`${API_URL}/api/fighters?${params.toString()}`);
       const data = await response.json();
       if (!response.ok) { setError(data.error); return; }
       setFighters(data.fighters);
@@ -412,3 +413,4 @@ const styles = StyleSheet.create({
   applyBtn: { backgroundColor: "#e63946", borderRadius: 12, paddingVertical: 16, alignItems: "center", marginTop: 16 },
   applyBtnText: { color: "#fff", fontSize: 17, fontWeight: "700" },
 });
+

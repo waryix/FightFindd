@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useState, useEffect } from "react";
+import { API_URL } from "../../src/services/config";
 
 const DISCIPLINE_FILTERS = ["all", "boxing", "mma", "muay_thai", "kickboxing", "bjj", "wrestling"];
 
@@ -30,7 +31,7 @@ export default function GymsScreen() {
       if (filter) params.append("discipline", filter);
 
       const response = await fetch(
-        `http://localhost:4000/api/gyms?${params.toString()}`
+        `${API_URL}/api/gyms?${params.toString()}`
       );
       const data = await response.json();
 
@@ -222,3 +223,4 @@ const styles = StyleSheet.create({
   emptyText: { color: "#fff", fontSize: 18, fontWeight: "600" },
   emptySubText: { color: "#666", fontSize: 14 },
 });
+
