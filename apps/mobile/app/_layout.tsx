@@ -2,9 +2,10 @@ import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
-import { getSession } from "../src/store/session";
+import { getSession, saveSession } from "../src/store/session";
 import { registerForPushNotifications, setupNotificationHandlers } from "../src/services/notifications";
 import { API_URL } from "../src/services/config";
+import { supabase } from "../src/services/supabase";
 
 export default function RootLayout() {
   const [checking, setChecking] = useState(true);
@@ -25,7 +26,14 @@ export default function RootLayout() {
   const checkSession = async () => {
     try {
       const fighterId = await getSession();
-      setHasSession(!!fighterId);
+      if (fighterId) {
+        // Refresh Supabase session to get fresh token
+        const { data } = await supabase.auth.getSession();
+        if (data.session?.access_token) {
+          await saveSession(fighterId, data.session.access_token);
+        }
+        setHasSession(true);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -37,17 +45,13 @@ export default function RootLayout() {
     try {
       const fighterId = await getSession();
       if (!fighterId) return;
-
       const token = await registerForPushNotifications();
       if (!token) return;
-
       await fetch(`${API_URL}/api/fighters/${fighterId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ push_token: token }),
       });
-
-      console.log("Push token registered:", token);
     } catch (err: any) {
       console.error("Failed to register push token:", err.message);
     }

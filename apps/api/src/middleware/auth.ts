@@ -11,6 +11,11 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
   const token = authHeader.split(" ")[1];
 
+  if (!token || token === "undefined" || token === "null") {
+    res.status(401).json({ error: "Invalid token" });
+    return;
+  }
+
   const { data, error } = await supabase.auth.getUser(token);
 
   if (error || !data.user) {
