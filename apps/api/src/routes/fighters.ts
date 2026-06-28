@@ -1,5 +1,4 @@
 import { Router, type IRouter } from "express";
-import type { Fighter } from "@repo/types/fighter";
 import { supabase } from "../config/supabase";
 
 export const fighterRouter: IRouter = Router();
@@ -8,11 +7,13 @@ fighterRouter.get("/", async (req, res) => {
   const {
     city, skill_level, weight_class, discipline, exclude_id,
     lat, lng, radius_km, min_experience, max_experience,
-    min_weight, max_weight, min_height, max_height, min_fights, max_fights,
+    min_weight, max_weight, min_height, max_height,
+    min_fights, max_fights, search,
   } = req.query;
 
   let query = supabase.from("fighters").select("*");
 
+  if (search) query = query.or(`name.ilike.%${search}%,city.ilike.%${search}%`);
   if (city) query = query.ilike("city", `%${city}%`);
   if (skill_level) query = query.eq("skill_level", skill_level);
   if (weight_class) query = query.eq("weight_class", weight_class);
@@ -84,7 +85,8 @@ fighterRouter.post("/", async (req, res) => {
     weight_class: body.weightClass, age_years: body.ageYears,
     years_experience: body.yearsExperience, height_cm: body.heightCm ?? null,
     weight_kg: body.weightKg ?? null, total_amateur_fights: body.totalAmateurFights ?? 0,
-    total_pro_fights: body.totalProFights ?? 0, bio: body.bio ?? null, avatar_url: body.avatarUrl ?? null,
+    total_pro_fights: body.totalProFights ?? 0, bio: body.bio ?? null,
+    avatar_url: body.avatarUrl ?? null,
   }).select().single();
   if (error) { res.status(400).json({ error: error.message }); return; }
   res.status(201).json({ fighter: data });

@@ -1,9 +1,10 @@
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, ScrollView, TextInput } from "react-native";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { router } from "expo-router";
 import * as Location from "expo-location";
 import { getSession } from "../../src/store/session";
 import { API_URL } from "../../src/services/config";
+import Avatar from "../../src/components/Avatar";
 import type { Discipline, SkillLevel, WeightClass } from "@repo/types/fighter";
 
 const DISCIPLINES: Discipline[] = ["boxing", "mma", "kickboxing", "muay_thai", "bjj", "wrestling"];
@@ -51,9 +52,17 @@ export default function DiscoverScreen() {
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [search, setSearch] = useState("");
+  const [searchDebounce, setSearchDebounce] = useState("");
 
   useEffect(() => { loadMyId(); }, []);
-  useEffect(() => { if (myId !== null) fetchFighters(); }, [myId, appliedFilters]);
+  useEffect(() => { if (myId !== null) fetchFighters(); }, [myId, appliedFilters, searchDebounce]);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchDebounce(search), 500);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const loadMyId = async () => { const id = await getSession(); setMyId(id); };
 
@@ -74,6 +83,7 @@ export default function DiscoverScreen() {
     try {
       const params = new URLSearchParams();
       const f = appliedFilters;
+      if (searchDebounce) params.append("search", searchDebounce);
       if (f.discipline) params.append("discipline", f.discipline);
       if (f.skillLevel) params.append("skill_level", f.skillLevel);
       if (f.weightClass) params.append("weight_class", f.weightClass);
@@ -127,11 +137,7 @@ export default function DiscoverScreen() {
         activeOpacity={0.8}
       >
         <View style={styles.cardTop}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {item.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
-            </Text>
-          </View>
+          <Avatar name={item.name} avatarUrl={item.avatar_url} size={52} />
           <View style={styles.cardInfo}>
             <Text style={styles.fighterName}>{item.name}</Text>
             <Text style={styles.fighterLocation}>{item.city}, {item.state}</Text>
@@ -139,9 +145,7 @@ export default function DiscoverScreen() {
               <View style={[styles.skillTag, { backgroundColor: skillColor + "22", borderColor: skillColor }]}>
                 <Text style={[styles.skillTagText, { color: skillColor }]}>{item.skill_level}</Text>
               </View>
-              <View style={styles.tag}>
-                <Text style={styles.tagText}>{item.weight_class?.replace("_", " ")}</Text>
-              </View>
+              <View style={styles.tag}><Text style={styles.tagText}>{item.weight_class?.replace("_", " ")}</Text></View>
               {item.weight_kg ? <View style={styles.tag}><Text style={styles.tagText}>{item.weight_kg}kg</Text></View> : null}
               {item.height_cm ? <View style={styles.tag}><Text style={styles.tagText}>{item.height_cm}cm</Text></View> : null}
             </View>
@@ -149,20 +153,11 @@ export default function DiscoverScreen() {
         </View>
 
         <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{item.years_experience ?? 0}</Text>
-            <Text style={styles.statLabel}>yrs exp</Text>
-          </View>
+          <View style={styles.statItem}><Text style={styles.statValue}>{item.years_experience ?? 0}</Text><Text style={styles.statLabel}>yrs exp</Text></View>
           <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{item.total_amateur_fights ?? 0}</Text>
-            <Text style={styles.statLabel}>amateur</Text>
-          </View>
+          <View style={styles.statItem}><Text style={styles.statValue}>{item.total_amateur_fights ?? 0}</Text><Text style={styles.statLabel}>amateur</Text></View>
           <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{item.total_pro_fights ?? 0}</Text>
-            <Text style={styles.statLabel}>pro fights</Text>
-          </View>
+          <View style={styles.statItem}><Text style={styles.statValue}>{item.total_pro_fights ?? 0}</Text><Text style={styles.statLabel}>pro fights</Text></View>
         </View>
 
         <View style={styles.disciplines}>
@@ -183,12 +178,7 @@ export default function DiscoverScreen() {
               e.stopPropagation();
               router.push({
                 pathname: "/(tabs)/request/[receiverId]",
-                params: {
-                  receiverId: item.id,
-                  receiverName: item.name,
-                  receiverSkill: item.skill_level,
-                  receiverDisciplines: JSON.stringify(item.discipline),
-                },
+                params: { receiverId: item.id, receiverName: item.name, receiverSkill: item.skill_level, receiverDisciplines: JSON.stringify(item.discipline) },
               });
             }}
           >
@@ -216,6 +206,23 @@ export default function DiscoverScreen() {
             Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
           </Text>
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.searchRow}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search by name or city..."
+          placeholderTextColor="#444"
+          value={search}
+          onChangeText={setSearch}
+          color="#fff"
+          returnKeyType="search"
+        />
+        {search.length > 0 && (
+          <TouchableOpacity style={styles.clearSearch} onPress={() => setSearch("")}>
+            <Text style={styles.clearSearchText}>?</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.disciplineRow}>
@@ -249,7 +256,7 @@ export default function DiscoverScreen() {
       ) : fighters.length === 0 ? (
         <View style={styles.center}>
           <Text style={styles.emptyText}>No fighters found</Text>
-          <Text style={styles.emptySubText}>Try adjusting your filters</Text>
+          <Text style={styles.emptySubText}>Try a different search or adjust filters</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={handleClear}><Text style={styles.retryBtnText}>Clear filters</Text></TouchableOpacity>
         </View>
       ) : (
@@ -343,13 +350,17 @@ export default function DiscoverScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0a0a0a" },
-  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
   headerTitle: { fontSize: 28, fontWeight: "800", color: "#fff" },
   headerSub: { fontSize: 14, color: "#666", marginTop: 2 },
   filterBtn: { backgroundColor: "#1a1a1a", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: "#2a2a2a", marginTop: 4 },
   filterBtnActive: { backgroundColor: "#e6394622", borderColor: "#e63946" },
   filterBtnText: { color: "#666", fontSize: 13, fontWeight: "600" },
   filterBtnTextActive: { color: "#e63946" },
+  searchRow: { flexDirection: "row", alignItems: "center", marginHorizontal: 16, marginBottom: 10, backgroundColor: "#1a1a1a", borderRadius: 12, borderWidth: 1, borderColor: "#2a2a2a", paddingHorizontal: 14 },
+  searchInput: { flex: 1, paddingVertical: 12, fontSize: 15 },
+  clearSearch: { padding: 6 },
+  clearSearchText: { color: "#555", fontSize: 14 },
   disciplineRow: { marginBottom: 8 },
   filterList: { paddingHorizontal: 16, gap: 8 },
   filterChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: "#1a1a1a", borderWidth: 1, borderColor: "#2a2a2a" },
@@ -359,8 +370,6 @@ const styles = StyleSheet.create({
   list: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
   card: { backgroundColor: "#141414", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "#2a2a2a" },
   cardTop: { flexDirection: "row", gap: 14, marginBottom: 10 },
-  avatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: "#e63946", alignItems: "center", justifyContent: "center" },
-  avatarText: { color: "#fff", fontSize: 18, fontWeight: "700" },
   cardInfo: { flex: 1, gap: 4 },
   fighterName: { fontSize: 17, fontWeight: "700", color: "#fff" },
   fighterLocation: { fontSize: 13, color: "#666" },
@@ -413,4 +422,3 @@ const styles = StyleSheet.create({
   applyBtn: { backgroundColor: "#e63946", borderRadius: 12, paddingVertical: 16, alignItems: "center", marginTop: 16 },
   applyBtnText: { color: "#fff", fontSize: 17, fontWeight: "700" },
 });
-

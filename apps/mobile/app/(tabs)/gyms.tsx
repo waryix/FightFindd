@@ -1,16 +1,12 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput } from "react-native";
 import { useState, useEffect } from "react";
 import { API_URL } from "../../src/services/config";
 
 const DISCIPLINE_FILTERS = ["all", "boxing", "mma", "muay_thai", "kickboxing", "bjj", "wrestling"];
 
 const DISCIPLINE_COLOR: Record<string, string> = {
-  boxing: "#3b82f6",
-  mma: "#e63946",
-  muay_thai: "#f59e0b",
-  kickboxing: "#8b5cf6",
-  bjj: "#22c55e",
-  wrestling: "#f97316",
+  boxing: "#3b82f6", mma: "#e63946", muay_thai: "#f59e0b",
+  kickboxing: "#8b5cf6", bjj: "#22c55e", wrestling: "#f97316",
 };
 
 export default function GymsScreen() {
@@ -18,34 +14,32 @@ export default function GymsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [searchDebounce, setSearchDebounce] = useState("");
+  const [trialOnly, setTrialOnly] = useState(false);
 
   useEffect(() => {
-    fetchGyms();
-  }, [filter]);
+    const timer = setTimeout(() => setSearchDebounce(search), 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => { fetchGyms(); }, [filter, searchDebounce, trialOnly]);
 
   const fetchGyms = async () => {
     setLoading(true);
     setError("");
     try {
       const params = new URLSearchParams();
+      if (searchDebounce) params.append("search", searchDebounce);
       if (filter) params.append("discipline", filter);
+      if (trialOnly) params.append("has_trial", "true");
 
-      const response = await fetch(
-        `${API_URL}/api/gyms?${params.toString()}`
-      );
+      const response = await fetch(`${API_URL}/api/gyms?${params.toString()}`);
       const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error);
-        return;
-      }
-
+      if (!response.ok) { setError(data.error); return; }
       setGyms(data.gyms);
-    } catch (err: any) {
-      setError("Could not connect to server");
-    } finally {
-      setLoading(false);
-    }
+    } catch { setError("Could not connect to server"); }
+    finally { setLoading(false); }
   };
 
   const renderGym = ({ item }: { item: any }) => (
@@ -60,9 +54,7 @@ export default function GymsScreen() {
           <View style={styles.gymNameRow}>
             <Text style={styles.gymName}>{item.name}</Text>
             {item.is_verified && (
-              <View style={styles.verifiedBadge}>
-                <Text style={styles.verifiedText}>Verified</Text>
-              </View>
+              <View style={styles.verifiedBadge}><Text style={styles.verifiedText}>Verified</Text></View>
             )}
           </View>
           <Text style={styles.gymAddress}>{item.address}</Text>
@@ -73,9 +65,7 @@ export default function GymsScreen() {
       <View style={styles.disciplines}>
         {item.disciplines.map((d: string) => (
           <View key={d} style={[styles.disciplineChip, { borderColor: DISCIPLINE_COLOR[d] ?? "#333" }]}>
-            <Text style={[styles.disciplineText, { color: DISCIPLINE_COLOR[d] ?? "#888" }]}>
-              {d.replace("_", " ")}
-            </Text>
+            <Text style={[styles.disciplineText, { color: DISCIPLINE_COLOR[d] ?? "#888" }]}>{d.replace("_", " ")}</Text>
           </View>
         ))}
       </View>
@@ -88,7 +78,7 @@ export default function GymsScreen() {
         {item.monthly_fee_inr && (
           <View style={styles.metaItem}>
             <Text style={styles.metaLabel}>Monthly Fee</Text>
-            <Text style={styles.metaValue}>Rs. {item.monthly_fee_inr.toLocaleString("en-IN")}</Text>
+            <Text style={styles.metaValue}>?{item.monthly_fee_inr.toLocaleString("en-IN")}</Text>
           </View>
         )}
       </View>
@@ -99,9 +89,7 @@ export default function GymsScreen() {
         </View>
       )}
 
-      {item.description && (
-        <Text style={styles.description} numberOfLines={2}>{item.description}</Text>
-      )}
+      {item.description && <Text style={styles.description} numberOfLines={2}>{item.description}</Text>}
 
       <View style={styles.cardActions}>
         <TouchableOpacity style={styles.callBtn}>
@@ -121,7 +109,23 @@ export default function GymsScreen() {
         <Text style={styles.headerSub}>Boxing, MMA and combat sports gyms</Text>
       </View>
 
-      <View style={styles.filterWrapper}>
+      <View style={styles.searchRow}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search gyms by name or city..."
+          placeholderTextColor="#444"
+          value={search}
+          onChangeText={setSearch}
+          color="#fff"
+        />
+        {search.length > 0 && (
+          <TouchableOpacity style={styles.clearSearch} onPress={() => setSearch("")}>
+            <Text style={styles.clearSearchText}>?</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <View style={styles.filterRow}>
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -130,16 +134,10 @@ export default function GymsScreen() {
           contentContainerStyle={styles.filterList}
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={[
-                styles.filterChip,
-                (item === "all" ? filter === null : filter === item) && styles.filterChipActive
-              ]}
+              style={[styles.filterChip, (item === "all" ? filter === null : filter === item) && styles.filterChipActive]}
               onPress={() => setFilter(item === "all" ? null : item)}
             >
-              <Text style={[
-                styles.filterChipText,
-                (item === "all" ? filter === null : filter === item) && styles.filterChipTextActive
-              ]}>
+              <Text style={[styles.filterChipText, (item === "all" ? filter === null : filter === item) && styles.filterChipTextActive]}>
                 {item === "all" ? "All" : item.replace("_", " ")}
               </Text>
             </TouchableOpacity>
@@ -147,22 +145,23 @@ export default function GymsScreen() {
         />
       </View>
 
+      <TouchableOpacity
+        style={[styles.trialToggle, trialOnly && styles.trialToggleActive]}
+        onPress={() => setTrialOnly(!trialOnly)}
+      >
+        <Text style={[styles.trialToggleText, trialOnly && styles.trialToggleTextActive]}>
+          {trialOnly ? "Showing: Free trial only" : "Show free trial gyms only"}
+        </Text>
+      </TouchableOpacity>
+
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color="#e63946" size="large" />
-          <Text style={styles.loadingText}>Finding gyms...</Text>
-        </View>
+        <View style={styles.center}><ActivityIndicator color="#e63946" size="large" /><Text style={styles.loadingText}>Finding gyms...</Text></View>
       ) : error ? (
-        <View style={styles.center}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={fetchGyms}>
-            <Text style={styles.retryBtnText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
+        <View style={styles.center}><Text style={styles.errorText}>{error}</Text><TouchableOpacity style={styles.retryBtn} onPress={fetchGyms}><Text style={styles.retryBtnText}>Retry</Text></TouchableOpacity></View>
       ) : gyms.length === 0 ? (
         <View style={styles.center}>
           <Text style={styles.emptyText}>No gyms found</Text>
-          <Text style={styles.emptySubText}>Try changing your filters</Text>
+          <Text style={styles.emptySubText}>Try a different search</Text>
         </View>
       ) : (
         <FlatList
@@ -179,15 +178,23 @@ export default function GymsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0a0a0a" },
-  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16 },
+  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8 },
   headerTitle: { fontSize: 28, fontWeight: "800", color: "#fff" },
   headerSub: { fontSize: 14, color: "#666", marginTop: 2 },
-  filterWrapper: { paddingBottom: 12 },
+  searchRow: { flexDirection: "row", alignItems: "center", marginHorizontal: 16, marginBottom: 10, backgroundColor: "#1a1a1a", borderRadius: 12, borderWidth: 1, borderColor: "#2a2a2a", paddingHorizontal: 14 },
+  searchInput: { flex: 1, paddingVertical: 12, fontSize: 15 },
+  clearSearch: { padding: 6 },
+  clearSearchText: { color: "#555", fontSize: 14 },
+  filterRow: { marginBottom: 8 },
   filterList: { paddingHorizontal: 16, gap: 8 },
   filterChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: "#1a1a1a", borderWidth: 1, borderColor: "#2a2a2a" },
   filterChipActive: { backgroundColor: "#e63946", borderColor: "#e63946" },
   filterChipText: { color: "#666", fontSize: 13, fontWeight: "500", textTransform: "capitalize" },
   filterChipTextActive: { color: "#fff" },
+  trialToggle: { marginHorizontal: 16, marginBottom: 10, backgroundColor: "#1a1a1a", borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1, borderColor: "#2a2a2a", alignSelf: "flex-start" },
+  trialToggleActive: { backgroundColor: "#22c55e22", borderColor: "#22c55e" },
+  trialToggleText: { color: "#666", fontSize: 13, fontWeight: "500" },
+  trialToggleTextActive: { color: "#22c55e" },
   list: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
   card: { backgroundColor: "#141414", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "#2a2a2a" },
   cardHeader: { flexDirection: "row", gap: 14, marginBottom: 12 },
@@ -223,4 +230,3 @@ const styles = StyleSheet.create({
   emptyText: { color: "#fff", fontSize: 18, fontWeight: "600" },
   emptySubText: { color: "#666", fontSize: 14 },
 });
-

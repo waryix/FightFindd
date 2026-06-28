@@ -4,11 +4,14 @@ import { supabase } from "../config/supabase";
 export const gymRouter: IRouter = Router();
 
 gymRouter.get("/", async (req, res) => {
-  const { city, discipline, lat, lng, radius_km } = req.query;
+  const { city, discipline, lat, lng, radius_km, search, has_trial } = req.query;
 
   let query = supabase.from("gyms").select("*");
+
+  if (search) query = query.or(`name.ilike.%${search}%,city.ilike.%${search}%,address.ilike.%${search}%`);
   if (city) query = query.ilike("city", `%${city}%`);
   if (discipline) query = query.contains("disciplines", [discipline]);
+  if (has_trial === "true") query = query.eq("has_trial_class", true);
 
   const { data, error } = await query;
   if (error) { res.status(500).json({ error: error.message }); return; }
