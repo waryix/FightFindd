@@ -28,16 +28,11 @@ export default function MatchesScreen() {
   const [error, setError] = useState("");
   const [tab, setTab] = useState<"received" | "sent">("received");
   const [myId, setMyId] = useState<string | null>(null);
-  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => { loadMyId(); }, []);
   useEffect(() => { if (myId) fetchMatches(); }, [myId]);
 
-  const loadMyId = async () => {
-    const [id, tok] = await Promise.all([getSession(), getToken()]);
-    setMyId(id);
-    setToken(tok);
-  };
+  const loadMyId = async () => { const id = await getSession(); setMyId(id); };
 
   const fetchMatches = async () => {
     if (!myId) return;
@@ -134,9 +129,24 @@ export default function MatchesScreen() {
         )}
 
         {item.status === "accepted" && (
-          <TouchableOpacity style={styles.completeBtn} onPress={() => updateStatus(item.id, "completed")}>
-            <Text style={styles.completeBtnText}>Mark as Completed</Text>
-          </TouchableOpacity>
+          <View style={styles.acceptedActions}>
+            <TouchableOpacity
+              style={styles.messageBtn}
+              onPress={() => router.push({
+                pathname: "/(tabs)/chat/[matchId]",
+                params: {
+                  matchId: item.id,
+                  otherName: otherFighter?.name ?? "Fighter",
+                  otherFighterId: otherFighter?.id ?? "",
+                },
+              })}
+            >
+              <Text style={styles.messageBtnText}>Message</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.completeBtn} onPress={() => updateStatus(item.id, "completed")}>
+              <Text style={styles.completeBtnText}>Mark Completed</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         {tab === "sent" && item.status === "pending" && (
@@ -214,8 +224,11 @@ const styles = StyleSheet.create({
   declineBtnText: { color: "#888", fontSize: 14, fontWeight: "600" },
   acceptBtn: { flex: 1, backgroundColor: "#22c55e22", borderRadius: 10, paddingVertical: 10, alignItems: "center", borderWidth: 1, borderColor: "#22c55e55" },
   acceptBtnText: { color: "#22c55e", fontSize: 14, fontWeight: "600" },
-  completeBtn: { backgroundColor: "#3b82f622", borderRadius: 10, paddingVertical: 10, alignItems: "center", borderWidth: 1, borderColor: "#3b82f655" },
-  completeBtnText: { color: "#3b82f6", fontSize: 14, fontWeight: "600" },
+  acceptedActions: { flexDirection: "row", gap: 10 },
+  messageBtn: { flex: 1, backgroundColor: "#3b82f622", borderRadius: 10, paddingVertical: 10, alignItems: "center", borderWidth: 1, borderColor: "#3b82f655" },
+  messageBtnText: { color: "#3b82f6", fontSize: 14, fontWeight: "600" },
+  completeBtn: { flex: 1, backgroundColor: "#1a1a1a", borderRadius: 10, paddingVertical: 10, alignItems: "center", borderWidth: 1, borderColor: "#2a2a2a" },
+  completeBtnText: { color: "#888", fontSize: 14, fontWeight: "600" },
   cancelBtn: { backgroundColor: "#1a1a1a", borderRadius: 10, paddingVertical: 10, alignItems: "center", borderWidth: 1, borderColor: "#2a2a2a" },
   cancelBtnText: { color: "#888", fontSize: 14, fontWeight: "600" },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: 32 },

@@ -18,6 +18,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="request/[receiverId]" options={{ title: "Request Sparring", tabBarButton: () => null }} />
       <Tabs.Screen name="edit-profile" options={{ title: "Edit Profile", tabBarButton: () => null }} />
       <Tabs.Screen name="fighter/[fighterId]" options={{ title: "Fighter Profile", tabBarButton: () => null }} />
+      <Tabs.Screen name="chat/[matchId]" options={{ title: "Chat", tabBarButton: () => null }} />
     </Tabs>
   );
 }
