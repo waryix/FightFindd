@@ -1,0 +1,40 @@
+{
+  "name": "fightfind",
+  "version": "2.0.0",
+  "private": true,
+  "description": "FightFind 2.0 — combat sports marketplace and network for India",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "dev:api": "pnpm --filter @fightfind/api dev",
+    "dev:mobile": "pnpm --filter @fightfind/mobile dev",
+    "dev:gym-portal": "pnpm --filter @fightfind/gym-portal dev",
+    "lint": "turbo run lint",
+    "check-types": "turbo run check-types",
+    "test": "turbo run test",
+    "test:unit": "pnpm --filter @fightfind/utils test && pnpm --filter @fightfind/api test:unit",
+    "test:integration": "pnpm --filter @fightfind/api test:integration",
+    "format": "prettier --write \"**/*.{ts,tsx,js,mjs,json,md,css}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,json,md,css}\"",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:migrate": "pnpm --filter @fightfind/api db:migrate",
+    "db:seed": "pnpm --filter @fightfind/api db:seed",
+    "db:studio": "pnpm --filter @fightfind/api db:studio",
+    "db:sqlite": "pnpm --filter @fightfind/api db:sqlite",
+    "db:reset": "pnpm --filter @fightfind/api db:reset"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "eslint": "^9.39.0",
+    "globals": "^16.5.0",
+    "prettier": "^3.9.0",
+    "turbo": "^2.11.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.71.0"
+  },
+  "packageManager": "pnpm@11.3.0",
+  "engines": {
+    "node": ">=20"
+  }
+}

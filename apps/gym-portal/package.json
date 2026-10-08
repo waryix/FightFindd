@@ -1,0 +1,32 @@
+{
+  "name": "@fightfind/gym-portal",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src app"
+  },
+  "dependencies": {
+    "@fightfind/api-client": "workspace:*",
+    "@fightfind/config": "workspace:*",
+    "@fightfind/types": "workspace:*",
+    "@fightfind/ui": "workspace:*",
+    "@fightfind/utils": "workspace:*",
+    "@tanstack/react-query": "^5.104.1",
+    "next": "^16.4.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "postcss": "^8.5.29",
+    "tailwindcss": "^4.3.3",
+    "typescript": "5.9.3"
+  }
+}

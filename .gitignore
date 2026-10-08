@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.turbo/
+.next/
+out/
+.expo/
+expo-env.d.ts
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Secrets / credentials
+*.pem
+*.key
+google-services.json
+GoogleService-Info.plist
+service-account*.json
+
+# Uploads (dev storage)
+uploads/
+
+# Database artifacts / snapshots
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+apps/api/data/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+coverage/
+.vitest/
+
+# Editor
+.idea/
+.vscode/*
+!.vscode/extensions.json

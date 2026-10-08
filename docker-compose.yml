@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: fightfind-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fightfind
+      POSTGRES_PASSWORD: fightfind
+      POSTGRES_DB: fightfind
+    ports:
+      - "5432:5432"
+    volumes:
+      - fightfind_pgdata:/var/lib/postgresql
+      - ./apps/api/docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fightfind -d fightfind"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fightfind-api
+    profiles: ["full"]
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4001
+      HOST: 0.0.0.0
+      DATABASE_URL: postgres://fightfind:fightfind@postgres:5432/fightfind
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-000000000000}
+      SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production-0000000}
+      API_PUBLIC_URL: ${API_PUBLIC_URL:-http://localhost:4001}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001}
+      PAYMENT_MODE: ${PAYMENT_MODE:-test}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      RAZORPAY_FIGHTER_PLAN_ID: ${RAZORPAY_FIGHTER_PLAN_ID:-}
+      RAZORPAY_GYM_PLAN_ID: ${RAZORPAY_GYM_PLAN_ID:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MSG91_AUTH_KEY: ${MSG91_AUTH_KEY:-}
+      MSG91_TEMPLATE_ID: ${MSG91_TEMPLATE_ID:-}
+    ports:
+      - "4001:4001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  fightfind_pgdata:

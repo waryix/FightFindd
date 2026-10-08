@@ -1,0 +1,38 @@
+/**
+ * FightFind design tokens as CSS custom properties.
+ * Consumed by the gym portal (Tailwind v4 @theme) and any future web surface.
+ */
+:root {
+  --ff-primary: #e63946;
+  --ff-primary-dark: #b32c38;
+  --ff-primary-soft: rgba(230, 57, 70, 0.14);
+  --ff-primary-border: rgba(230, 57, 70, 0.4);
+
+  --ff-background: #0a0a0a;
+  --ff-surface: #141414;
+  --ff-surface-raised: #1a1a1a;
+  --ff-border: #2a2a2a;
+  --ff-border-subtle: #1f1f1f;
+
+  --ff-text-primary: #ffffff;
+  --ff-text-secondary: #888888;
+  --ff-text-muted: #555555;
+  --ff-text-faint: #444444;
+
+  --ff-success: #22c55e;
+  --ff-success-soft: rgba(34, 197, 94, 0.14);
+  --ff-warning: #f59e0b;
+  --ff-warning-soft: rgba(245, 158, 11, 0.14);
+  --ff-info: #3b82f6;
+  --ff-info-soft: rgba(59, 130, 246, 0.14);
+  --ff-danger: #e63946;
+  --ff-danger-soft: rgba(230, 57, 70, 0.14);
+  --ff-neutral: #666666;
+  --ff-neutral-soft: rgba(102, 102, 102, 0.14);
+
+  --ff-radius-sm: 6px;
+  --ff-radius-md: 10px;
+  --ff-radius-lg: 12px;
+  --ff-radius-xl: 16px;
+  --ff-radius-xxl: 24px;
+}

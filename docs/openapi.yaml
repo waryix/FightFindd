@@ -1,0 +1,898 @@
+openapi: 3.1.0
+info:
+  title: FightFind API
+  version: 2.0.0
+  description: |
+    FightFind is a combat-sports marketplace and network for India. This API serves
+    the fighter mobile app, the gym owner portal and the Razorpay webhook pipeline.
+
+    Conventions:
+    - All money is integer **paise** (`₹999 = 99900`). The server always resolves prices.
+    - Cursor pagination returns `{ items, nextCursor }`.
+    - Errors use `{ "error": { "code", "message", "details?", "requestId" } }`.
+servers:
+  - url: http://localhost:4001
+    description: Local development
+  - url: https://api.fightfind.in
+    description: Production
+tags:
+  - name: Auth
+  - name: Users
+  - name: Fighters
+  - name: Gyms
+  - name: Sparring
+  - name: Matches
+  - name: Messages
+  - name: Memberships
+  - name: Payments
+  - name: Subscriptions
+  - name: Gym Owner
+  - name: Admin
+  - name: Notifications
+  - name: Webhooks
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [Users]
+      security: []
+      summary: Liveness probe
+      responses:
+        "200": { description: OK }
+  /health/ready:
+    get:
+      tags: [Users]
+      security: []
+      summary: Readiness probe (checks the database)
+      responses:
+        "200": { description: Ready }
+        "503": { description: Database unavailable }
+
+  /api/v1/config:
+    get:
+      tags: [Users]
+      security: []
+      summary: Public configuration (prices, payment mode, publishable key id)
+      responses:
+        "200":
+          description: Public config
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  currency: { type: string, example: INR }
+                  paymentMode: { type: string, enum: [test, live, mock] }
+                  razorpayKeyId: { type: [string, "null"] }
+                  pricing:
+                    type: object
+                    properties:
+                      fighterPremiumMonthlyPaise: { type: integer, example: 19900 }
+                      gymListingFeePaise: { type: integer, example: 99900 }
+                      gymPlatformMonthlyPaise: { type: integer, example: 39900 }
+
+  /api/v1/auth/otp/request:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Request a phone or email OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [channel, identifier]
+              properties:
+                channel: { type: string, enum: [phone, email] }
+                identifier: { type: string, example: "+919876543210" }
+                purpose:
+                  type: string
+                  enum: [login, signup, gym_owner_login, gym_owner_signup]
+                  default: login
+                name: { type: string }
+      responses:
+        "200":
+          description: OTP sent. `devOtp` is only returned outside production.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  challengeId: { type: string, format: uuid }
+                  channel: { type: string }
+                  identifier: { type: string }
+                  expiresAt: { type: string, format: date-time }
+                  devOtp: { type: string, description: Development only }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /api/v1/auth/otp/verify:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Verify an OTP and create a session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challengeId, code]
+              properties:
+                challengeId: { type: string, format: uuid }
+                code: { type: string, pattern: "^\\d{6}$" }
+                name: { type: string }
+      responses:
+        "200":
+          description: Session created. The refresh token is also set as an httpOnly cookie.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthSession" }
+        "400": { $ref: "#/components/responses/ApiError" }
+  /api/v1/auth/guest:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Create a guest session (browsing only)
+      responses:
+        "200":
+          description: Guest session
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthSession" }
+  /api/v1/auth/refresh:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Rotate a refresh token (body or httpOnly cookie)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken: { type: string }
+      responses:
+        "200":
+          description: New session
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthSession" }
+        "401": { $ref: "#/components/responses/ApiError" }
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke the current session
+      responses:
+        "200": { description: Logged out }
+
+  /api/v1/users/me:
+    get:
+      tags: [Users]
+      summary: Current user with roles and entitlements
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: "#/components/schemas/AuthUser" }
+                  entitlements: { $ref: "#/components/schemas/Entitlements" }
+    patch:
+      tags: [Users]
+      summary: Update basic profile fields (name)
+      responses:
+        "200": { description: Updated }
+
+  /api/v1/fighters:
+    get:
+      tags: [Fighters]
+      security: []
+      summary: Discover fighters (DB-side filtering, distance and compatibility)
+      parameters:
+        - { name: lat, in: query, schema: { type: number } }
+        - { name: lng, in: query, schema: { type: number } }
+        - { name: radius_km, in: query, schema: { type: number, example: 25 } }
+        - { name: city, in: query, schema: { type: string } }
+        - { name: discipline, in: query, schema: { type: string } }
+        - { name: skill, in: query, schema: { type: string, enum: [beginner, intermediate, advanced, professional] } }
+        - { name: weight_class, in: query, schema: { type: string } }
+        - { name: min_height, in: query, schema: { type: number }, description: "FightFind Pro" }
+        - { name: max_height, in: query, schema: { type: number }, description: "FightFind Pro" }
+        - { name: min_weight, in: query, schema: { type: number }, description: "FightFind Pro" }
+        - { name: max_weight, in: query, schema: { type: number }, description: "FightFind Pro" }
+        - { name: min_experience, in: query, schema: { type: number }, description: "FightFind Pro" }
+        - { name: min_fights, in: query, schema: { type: number }, description: "FightFind Pro" }
+        - { name: sort, in: query, schema: { type: string, enum: [best_match, nearest, most_experienced, recently_active] } }
+        - { name: search, in: query, schema: { type: string } }
+        - { name: cursor, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, default: 20, maximum: 50 } }
+      responses:
+        "200":
+          description: Fighter cards with `distanceKm` and `compatibilityScore`
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/FighterCard" }
+                  nextCursor: { type: [string, "null"] }
+        "403": { description: ADVANCED_FILTERS_REQUIRE_PREMIUM }
+  /api/v1/fighters/me:
+    get:
+      tags: [Fighters]
+      summary: My fighter profile
+      responses:
+        "200": { description: Profile }
+    post:
+      tags: [Fighters]
+      summary: Create my fighter profile
+      responses:
+        "201": { description: Created }
+    patch:
+      tags: [Fighters]
+      summary: Update my fighter profile
+      responses:
+        "200": { description: Updated }
+  /api/v1/fighters/me/avatar:
+    post:
+      tags: [Fighters]
+      summary: Upload avatar (multipart, max 6 MB)
+      responses:
+        "200": { description: "`{ avatarUrl }`" }
+  /api/v1/fighters/me/memberships:
+    get:
+      tags: [Fighters, Memberships]
+      summary: My gym memberships
+      responses:
+        "200": { description: Membership list }
+  /api/v1/fighters/me/blocks:
+    post:
+      tags: [Fighters]
+      summary: Block a user
+      responses:
+        "200": { description: Blocked }
+  /api/v1/fighters/me/blocks/{userId}:
+    delete:
+      tags: [Fighters]
+      summary: Unblock a user
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Unblocked }
+  /api/v1/fighters/me/reports:
+    post:
+      tags: [Fighters]
+      summary: Report a user
+      responses:
+        "200": { description: Reported }
+  /api/v1/fighters/{id}:
+    get:
+      tags: [Fighters]
+      security: []
+      summary: Public fighter profile
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: lat, in: query, schema: { type: number } }
+        - { name: lng, in: query, schema: { type: number } }
+      responses:
+        "200": { description: "`{ fighter }`" }
+        "404": { $ref: "#/components/responses/ApiError" }
+
+  /api/v1/gyms:
+    get:
+      tags: [Gyms]
+      security: []
+      summary: Discover listed gyms
+      parameters:
+        - { name: lat, in: query, schema: { type: number } }
+        - { name: lng, in: query, schema: { type: number } }
+        - { name: radius_km, in: query, schema: { type: number } }
+        - { name: city, in: query, schema: { type: string } }
+        - { name: discipline, in: query, schema: { type: string } }
+        - { name: max_fee_paise, in: query, schema: { type: integer } }
+        - { name: has_trial, in: query, schema: { type: boolean } }
+        - { name: verified_only, in: query, schema: { type: boolean } }
+        - { name: sort, in: query, schema: { type: string, enum: [nearest, most_relevant, lowest_fee, highest_rated] } }
+      responses:
+        "200": { description: Gym cards with `distanceKm` }
+  /api/v1/gyms/{id}:
+    get:
+      tags: [Gyms]
+      security: []
+      summary: Gym detail
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: "`{ gym }`" }
+  /api/v1/gyms/{gymId}/membership:
+    get:
+      tags: [Gyms, Memberships]
+      summary: My membership at this gym (if any)
+      parameters:
+        - { name: gymId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: "`{ membership }`" }
+  /api/v1/gyms/{gymId}/membership/order:
+    post:
+      tags: [Gyms, Memberships]
+      summary: Create the first-month membership order (server-side price)
+      parameters:
+        - { name: gymId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "201":
+          description: Checkout order
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckoutOrder" }
+
+  /api/v1/sparring:
+    post:
+      tags: [Sparring]
+      summary: Create a sparring request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [receiverId, discipline, proposedDate, proposedLocation]
+              properties:
+                receiverId: { type: string, format: uuid, description: Fighter profile id }
+                discipline: { type: string }
+                proposedDate: { type: string, format: date-time }
+                proposedLocation: { type: string }
+                message: { type: [string, "null"] }
+      responses:
+        "201": { description: "`{ match }`" }
+        "409": { description: DUPLICATE_REQUEST or REQUEST_LIMIT_REACHED }
+  /api/v1/matches:
+    get:
+      tags: [Matches]
+      summary: List matches (received / sent)
+      parameters:
+        - { name: tab, in: query, schema: { type: string, enum: [received, sent], default: received } }
+        - { name: status, in: query, schema: { type: string, enum: [pending, accepted, declined, completed, cancelled] } }
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        "200": { description: Match list }
+  /api/v1/matches/{id}:
+    get:
+      tags: [Matches]
+      summary: Match detail (participants only)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: "`{ match }`" }
+        "404": { description: Not a participant }
+  /api/v1/matches/{id}/status:
+    patch:
+      tags: [Matches]
+      summary: Transition match status
+      description: |
+        Allowed transitions:
+        `pending → accepted | declined | cancelled`,
+        `accepted → completed | cancelled`.
+        Accept/decline is receiver-only; cancel/complete either participant.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [accepted, declined, completed, cancelled] }
+      responses:
+        "200": { description: Updated match }
+        "409": { description: MATCH_INVALID_TRANSITION }
+
+  /api/v1/messages/{matchId}:
+    get:
+      tags: [Messages]
+      summary: Message history (newest first, cursor pagination)
+      parameters:
+        - { name: matchId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: cursor, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, default: 50 } }
+      responses:
+        "200": { description: Message page }
+    post:
+      tags: [Messages]
+      summary: Send a message (match must be accepted)
+      parameters:
+        - { name: matchId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content: { type: string, maxLength: 2000 }
+      responses:
+        "201": { description: "`{ message }`" }
+        "409": { description: MATCH_NOT_ACCEPTED }
+  /api/v1/messages/{matchId}/read:
+    post:
+      tags: [Messages]
+      summary: Mark messages from the other participant as read
+      parameters:
+        - { name: matchId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Updated count }
+  /api/v1/ws:
+    get:
+      tags: [Messages]
+      summary: Realtime chat WebSocket
+      description: |
+        Connect with `?token=<accessToken>` (or an `Authorization: Bearer` header).
+        Frames: client `{type:"ping"|"send_message"|"read_messages"}`,
+        server `{type:"ready"|"message"|"read"|"pong"|"error"}`.
+        REST endpoints remain the fallback when WebSockets are unavailable.
+      responses:
+        "101": { description: Switching protocols }
+
+  /api/v1/payments/order:
+    post:
+      tags: [Payments]
+      summary: Create a one-time payment order (gym membership)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [product, gymId]
+              properties:
+                product: { type: string, enum: [GYM_MEMBERSHIP] }
+                gymId: { type: string, format: uuid }
+      responses:
+        "201": { description: Checkout order }
+  /api/v1/payments/verify:
+    post:
+      tags: [Payments]
+      summary: Verify a Checkout callback (signature + fetched payment + amount)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [razorpayOrderId, razorpayPaymentId, razorpaySignature]
+              properties:
+                razorpayOrderId: { type: string }
+                razorpayPaymentId: { type: string }
+                razorpaySignature: { type: string }
+      responses:
+        "200": { description: Verified; business state included }
+        "400": { description: PAYMENT_SIGNATURE_INVALID }
+        "409": { description: PAYMENT_AMOUNT_MISMATCH }
+  /api/v1/payments/{id}:
+    get:
+      tags: [Payments]
+      summary: Payment record (payer or gym owner)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: "`{ payment }`" }
+  /api/v1/payments/{id}/checkout:
+    get:
+      tags: [Payments]
+      summary: Hosted Checkout page for WebViews (no secrets)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: HTML page }
+
+  /api/v1/subscriptions/fighter-upgrade:
+    post:
+      tags: [Subscriptions]
+      summary: Start FightFind Pro (Razorpay Subscription)
+      responses:
+        "201": { description: "`{ subscription, razorpayKeyId, testMode }`" }
+  /api/v1/subscriptions/gym-platform:
+    post:
+      tags: [Subscriptions, Gym Owner]
+      summary: Start the gym platform plan (requires listing fee paid)
+      responses:
+        "201": { description: Subscription }
+        "409": { description: LISTING_PAYMENT_REQUIRED }
+  /api/v1/subscriptions/me:
+    get:
+      tags: [Subscriptions]
+      summary: My latest fighter subscription
+      responses:
+        "200": { description: "`{ subscription }`" }
+  /api/v1/subscriptions/me/entitlements:
+    get:
+      tags: [Subscriptions]
+      summary: Server-derived entitlements
+      responses:
+        "200":
+          description: Entitlements
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entitlements: { $ref: "#/components/schemas/Entitlements" }
+  /api/v1/subscriptions/{id}:
+    get:
+      tags: [Subscriptions]
+      summary: Subscription detail
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: "`{ subscription }`" }
+  /api/v1/subscriptions/{id}/cancel:
+    post:
+      tags: [Subscriptions]
+      summary: Cancel a subscription
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cancelAtPeriodEnd: { type: boolean, default: true }
+      responses:
+        "200": { description: Updated subscription }
+  /api/v1/subscriptions/{id}/verify:
+    post:
+      tags: [Subscriptions]
+      summary: Verify a subscription Checkout callback
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Verified }
+
+  /api/v1/gym-owner/onboarding:
+    get:
+      tags: [Gym Owner]
+      summary: Onboarding state machine
+      responses:
+        "200": { description: "`{ onboarding }`" }
+  /api/v1/gym-owner/gyms:
+    get:
+      tags: [Gym Owner]
+      summary: My gyms
+      responses:
+        "200": { description: "`{ gyms }`" }
+    post:
+      tags: [Gym Owner]
+      summary: Create a gym
+      responses:
+        "201": { description: "`{ gym }`" }
+  /api/v1/gym-owner/gyms/{gymId}:
+    get:
+      tags: [Gym Owner]
+      summary: Owned gym detail
+      parameters:
+        - { name: gymId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: "`{ gym }`" }
+    patch:
+      tags: [Gym Owner]
+      summary: Update owned gym
+      parameters:
+        - { name: gymId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: "`{ gym }`" }
+  /api/v1/gym-owner/gyms/{gymId}/photos:
+    post:
+      tags: [Gym Owner]
+      summary: Upload a gym photo (multipart)
+      parameters:
+        - { name: gymId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "201": { description: "`{ photoUrl, photoUrls }`" }
+  /api/v1/gym-owner/gyms/{gymId}/razorpay-account:
+    get:
+      tags: [Gym Owner]
+      summary: Refresh Razorpay linked-account status
+      parameters:
+        - { name: gymId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Linked account status }
+    post:
+      tags: [Gym Owner]
+      summary: Create/resume the Razorpay linked account
+      parameters:
+        - { name: gymId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Linked account }
+  /api/v1/gym-owner/gyms/{gymId}/listing-fee/order:
+    post:
+      tags: [Gym Owner]
+      summary: Create the one-time listing fee order (₹999 by default)
+      parameters:
+        - { name: gymId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "201": { description: Checkout order }
+  /api/v1/gym-owner/gyms/{gymId}/dashboard:
+    get:
+      tags: [Gym Owner]
+      summary: Dashboard metrics (members, requests, revenue, subscription)
+      parameters:
+        - { name: gymId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: "`{ dashboard }`" }
+  /api/v1/gym-owner/gyms/{gymId}/requests:
+    get:
+      tags: [Gym Owner]
+      summary: Membership requests awaiting approval
+      parameters:
+        - { name: gymId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Request page }
+  /api/v1/gym-owner/gyms/{gymId}/members:
+    get:
+      tags: [Gym Owner]
+      summary: Gym members
+      parameters:
+        - { name: gymId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string } }
+      responses:
+        "200": { description: Member page }
+  /api/v1/gym-owner/gyms/{gymId}/payments:
+    get:
+      tags: [Gym Owner]
+      summary: Gym payments with Route transfer state
+      parameters:
+        - { name: gymId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Payment page }
+  /api/v1/gym-owner/memberships/{id}/accept:
+    post:
+      tags: [Gym Owner]
+      summary: Accept a paid membership request
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: "`{ membership }`" }
+  /api/v1/gym-owner/memberships/{id}/decline:
+    post:
+      tags: [Gym Owner]
+      summary: Decline a paid membership request (refundable)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: "`{ membership }`" }
+
+  /api/v1/admin/gyms:
+    get:
+      tags: [Admin]
+      summary: List all gyms
+      responses:
+        "200": { description: Gym page }
+  /api/v1/admin/gyms/{id}/verification:
+    post:
+      tags: [Admin]
+      summary: Verify / reject / suspend a gym
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [pending, verified, rejected, suspended] }
+                reason: { type: string }
+      responses:
+        "200": { description: "`{ gym }`" }
+  /api/v1/admin/users:
+    get:
+      tags: [Admin]
+      summary: List users
+      responses:
+        "200": { description: User page }
+  /api/v1/admin/payments:
+    get:
+      tags: [Admin]
+      summary: List payments
+      responses:
+        "200": { description: Payment page }
+  /api/v1/admin/payments/failed:
+    get:
+      tags: [Admin]
+      summary: List failed payments
+      responses:
+        "200": { description: Payment page }
+  /api/v1/admin/memberships:
+    get:
+      tags: [Admin]
+      summary: List memberships
+      responses:
+        "200": { description: Membership page }
+  /api/v1/admin/audit-logs:
+    get:
+      tags: [Admin]
+      summary: List audit log records
+      responses:
+        "200": { description: Audit page }
+  /api/v1/admin/maintenance/run:
+    post:
+      tags: [Admin]
+      summary: Expire overdue memberships and enforce subscription suspensions
+      responses:
+        "200": { description: "`{ expiredMemberships, suspendedGyms }`" }
+
+  /api/v1/notifications:
+    get:
+      tags: [Notifications]
+      summary: My notifications
+      responses:
+        "200": { description: Notification page }
+  /api/v1/notifications/read:
+    post:
+      tags: [Notifications]
+      summary: Mark notifications read
+      responses:
+        "200": { description: Updated count }
+  /api/v1/notifications/devices:
+    post:
+      tags: [Notifications]
+      summary: Register an Expo push token
+      responses:
+        "201": { description: Registered }
+    delete:
+      tags: [Notifications]
+      summary: Remove a push token
+      responses:
+        "200": { description: Removed }
+  /api/v1/analytics/events:
+    post:
+      tags: [Users]
+      summary: Best-effort product analytics batch
+      responses:
+        "200": { description: Accepted }
+
+  /api/v1/webhooks/razorpay:
+    post:
+      tags: [Webhooks]
+      summary: Razorpay webhook receiver
+      description: |
+        Verifies `X-Razorpay-Signature` (HMAC-SHA256 of the raw body with
+        `RAZORPAY_WEBHOOK_SECRET`), deduplicates on `X-Razorpay-event-id`, and
+        processes events idempotently.
+
+        Handled events:
+        - `payment.captured`, `order.paid` → capture payment, activate business object
+        - `payment.failed` → fail payment/membership, notify
+        - `payment.authorized` → acknowledge (waits for capture)
+        - `refund.created`, `refund.processed`, `refund.failed` → refund records
+        - `subscription.authenticated|activated|charged|pending|halted|cancelled|completed|paused|resumed|updated`
+        - `invoice.paid` → subscription state resync
+        - `transfer.processed`, `transfer.failed`, `transfer.reversed` → Route transfers
+        - `product.route.under_review`, `product.route.needs_clarification` → payout onboarding
+      security: []
+      parameters:
+        - { name: X-Razorpay-Signature, in: header, required: true, schema: { type: string } }
+        - { name: X-Razorpay-Event-Id, in: header, required: false, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event: { type: string }
+                payload: { type: object }
+      responses:
+        "200":
+          description: "`{ status: processed | duplicate | ignored | error, event }`"
+        "400": { description: WEBHOOK_SIGNATURE_INVALID }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    ApiError:
+      description: Structured error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code: { type: string }
+                  message: { type: string }
+                  details: {}
+                  requestId: { type: string }
+    RateLimited:
+      description: Too many requests
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code: { type: string, example: RATE_LIMITED }
+                  message: { type: string }
+  schemas:
+    AuthSession:
+      type: object
+      properties:
+        user: { $ref: "#/components/schemas/AuthUser" }
+        tokens:
+          type: object
+          properties:
+            accessToken: { type: string }
+            accessTokenExpiresAt: { type: string, format: date-time }
+            refreshToken: { type: string }
+            refreshTokenExpiresAt: { type: string, format: date-time }
+    AuthUser:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: [string, "null"] }
+        phone: { type: [string, "null"] }
+        email: { type: [string, "null"] }
+        roles:
+          type: array
+          items: { type: string, enum: [FIGHTER, GYM_OWNER, ADMIN] }
+        isGuest: { type: boolean }
+        onboarding:
+          type: object
+          properties:
+            hasFighterProfile: { type: boolean }
+            fighterProfileComplete: { type: boolean }
+            isGymOwner: { type: boolean }
+            gymCount: { type: integer }
+    Entitlements:
+      type: object
+      properties:
+        isPremium: { type: boolean }
+        premiumUntil: { type: [string, "null"] }
+        canUseAdvancedFilters: { type: boolean }
+        canSendUnlimitedRequests: { type: boolean }
+        hasProfileBoost: { type: boolean }
+        pendingRequestLimit: { type: [integer, "null"] }
+    FighterCard:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        name: { type: string }
+        city: { type: string }
+        state: { type: string }
+        skillLevel: { type: string }
+        weightClass: { type: string }
+        disciplines:
+          type: array
+          items: { type: string }
+        distanceKm: { type: [number, "null"] }
+        compatibilityScore: { type: [integer, "null"] }
+        matchLabel: { type: [string, "null"], enum: [Great Match, Good Match, Fair Match, null] }
+    CheckoutOrder:
+      type: object
+      properties:
+        paymentId: { type: string, format: uuid }
+        razorpayOrderId: { type: string }
+        razorpayKeyId: { type: string }
+        amountPaise: { type: integer }
+        currency: { type: string, example: INR }
+        product: { type: string }
+        testMode: { type: boolean }
