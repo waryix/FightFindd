@@ -181,6 +181,10 @@ out-of-order events, invalid signatures, wrong amounts, refunds and authorizatio
   migrations on boot; `railway.json` is included. Set all secrets from `.env.example`.
 - **Gym portal**: Vercel. Set `NEXT_PUBLIC_API_URL` to the API URL.
 - **Mobile**: EAS (`eas build`, `eas submit`). Set `EXPO_PUBLIC_API_URL` per profile.
+- **Mobile web**: Vercel. Set the project **Root Directory** to `frontend/apps/mobile`,
+  build command `expo export -p web`, output directory `dist` (configured in
+  `frontend/apps/mobile/vercel.json`). Add `EXPO_PUBLIC_API_URL` in Vercel env vars and add
+  the deployment origin to the API's `CORS_ORIGINS`.
 - **Database**: managed PostgreSQL 15+ with connection pooling.
 
 ## Security notes
