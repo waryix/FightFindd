@@ -7,8 +7,8 @@ node_modules
 .git
 .gitignore
 *.log
-apps/api/uploads
-apps/api/data
+backend/apps/api/uploads
+backend/apps/api/data
 coverage
 .env
 .env.local

@@ -16,4 +16,4 @@ ENV NODE_ENV=production
 COPY --from=build /app /app
 EXPOSE 4001
 # Migrations are idempotent and safe to run on every boot.
-CMD ["sh", "-c", "node apps/api/dist/db/migrate.js && node apps/api/dist/index.js"]
+CMD ["sh", "-c", "node backend/apps/api/dist/db/migrate.js && node backend/apps/api/dist/index.js"]

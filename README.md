@@ -17,16 +17,20 @@ Fighter app (Expo)        Gym portal (Next.js)          API (Fastify)
 ## Repository structure
 
 ```text
-apps/
-  api/          Fastify + Drizzle + PostgreSQL backend (REST, WebSockets, webhooks)
-  mobile/       Expo + React Native fighter app (Expo Router)
-  gym-portal/   Next.js gym owner dashboard
+backend/
+  apps/
+    api/        Fastify + Drizzle + PostgreSQL backend (REST, WebSockets, webhooks)
+frontend/
+  apps/
+    mobile/     Expo + React Native fighter app (Expo Router)
+    gym-portal/ Next.js gym owner dashboard
+  packages/
+    ui/         React Native design system (cards, chips, buttons, payment states)
+    config/     Design tokens + shared tooling config
+    api-client/ Typed API client used by both frontends
 packages/
-  types/        Shared Zod schemas, DTOs, enums, pricing defaults
-  utils/        Compatibility scoring, geo, money, state machines (unit-tested)
-  ui/           React Native design system (cards, chips, buttons, payment states)
-  config/       Design tokens + shared tooling config
-  api-client/   Typed API client used by both frontends
+  types/        Shared Zod schemas, DTOs, enums, pricing defaults (frontend + backend)
+  utils/        Compatibility scoring, geo, money, state machines (frontend + backend)
 docs/
   openapi.yaml  OpenAPI 3.1 documentation (also served at /docs)
 ```
@@ -42,7 +46,7 @@ docs/
 
 ```bash
 pnpm install
-cp apps/api/.env.example apps/api/.env         # defaults work for local dev
+cp backend/apps/api/.env.example backend/apps/api/.env         # defaults work for local dev
 pnpm db:up                                     # starts PostgreSQL 18 in Docker
 pnpm db:migrate
 pnpm db:seed                                   # demo fighters, gyms, memberships
@@ -66,10 +70,10 @@ pnpm dev:mobile                                # Expo dev server
 
 Each app ships a `.env.example`:
 
-- `apps/api/.env.example` — database, JWT/session secrets, OTP providers (MSG91/Resend),
+- `backend/apps/api/.env.example` — database, JWT/session secrets, OTP providers (MSG91/Resend),
   Razorpay keys and plan ids, pricing in paise, storage, analytics.
-- `apps/mobile/.env.example` — `EXPO_PUBLIC_API_URL` (use your LAN IP on a physical device).
-- `apps/gym-portal/.env.example` — `NEXT_PUBLIC_API_URL`.
+- `frontend/apps/mobile/.env.example` — `EXPO_PUBLIC_API_URL` (use your LAN IP on a physical device).
+- `frontend/apps/gym-portal/.env.example` — `NEXT_PUBLIC_API_URL`.
 
 Rules enforced by the API:
 
@@ -107,7 +111,7 @@ pnpm dev:mobile                 # then press a (Android) / i (iOS) / w (web)
 - Payments open a Razorpay Checkout WebView; the server verifies signatures and webhooks.
 - In local dev with `PAYMENT_MODE=mock`, checkout offers an explicit simulator button.
 
-Builds: `eas build --profile preview -p android` (see `apps/mobile/eas.json`).
+Builds: `eas build --profile preview -p android` (see `frontend/apps/mobile/eas.json`).
 
 ## Running the gym portal
 

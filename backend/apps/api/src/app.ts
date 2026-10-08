@@ -173,7 +173,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     const { readFile } = await import("node:fs/promises");
     const candidates = [
       path.resolve(process.cwd(), "docs/openapi.yaml"),
-      path.resolve(process.cwd(), "../../docs/openapi.yaml"),
+      path.resolve(process.cwd(), "../../../docs/openapi.yaml"),
     ];
     for (const candidate of candidates) {
       try {

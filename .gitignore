@@ -33,7 +33,7 @@ uploads/
 *.db-wal
 *.sqlite
 *.sqlite3
-apps/api/data/
+backend/apps/api/data/
 
 # Logs
 *.log
