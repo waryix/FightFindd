@@ -412,7 +412,7 @@ export async function seed(db: Db) {
 const isMain = process.argv[1] && process.argv[1].endsWith("seed.ts");
 if (isMain) {
   const env = loadEnv();
-  const database = createDatabase(env.DATABASE_URL);
+  const database = createDatabase(env.DATABASE_URL, { max: 2 });
   seed(database.db)
     .then(async () => {
       await database.close();

@@ -13,6 +13,9 @@ export const envSchema = z.object({
   HOST: z.string().default("0.0.0.0"),
   LOG_LEVEL: z.string().default("info"),
   DATABASE_URL: z.string().min(1).default("postgres://fightfind:fightfind@localhost:5432/fightfind"),
+  // Max pooled connections per instance. Keep small when using a managed pooler
+  // (e.g. Supabase) so multiple API replicas do not exhaust the server limit.
+  DATABASE_POOL_MAX: intFromString.default(10),
 
   JWT_SECRET: z.string().min(16).default("dev-jwt-secret-change-me-0000000000000000"),
   SESSION_SECRET: z.string().min(16).default("dev-session-secret-change-me-00000000"),

@@ -1,0 +1,103 @@
+# Render Blueprint for the FightFind API.
+# Docs: https://render.com/docs/blueprint-spec
+#
+# After connecting this repo as a Blueprint, Render provisions the service below
+# and prompts for every `sync: false` value. Secrets with `generateValue: true`
+# are created automatically.
+#
+# Custom domain: add `api.fightfind.in` to this service, then set API_PUBLIC_URL
+# and CORS_ORIGINS (they need the public URLs, so set them and redeploy).
+
+services:
+  - type: web
+    name: fightfind-api
+    runtime: docker
+    plan: starter
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    numInstances: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Render injects PORT automatically; the app binds HOST=0.0.0.0.
+
+      # --- Database (Supabase Session pooler) ---
+      # postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=require
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_POOL_MAX
+        value: "5"
+
+      # --- Auth secrets ---
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true
+
+      # --- Public URLs (set once custom domains are attached) ---
+      - key: API_PUBLIC_URL
+        sync: false
+      # Comma-separated: https://gym.fightfind.in,https://app.fightfind.in
+      - key: CORS_ORIGINS
+        sync: false
+
+      # --- OTP delivery (required in production) ---
+      - key: MSG91_AUTH_KEY
+        sync: false
+      - key: MSG91_SENDER_ID
+        sync: false
+      - key: MSG91_TEMPLATE_ID
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        value: "FightFind <no-reply@fightfind.in>"
+
+      # --- Payments (Razorpay live) ---
+      - key: PAYMENT_MODE
+        value: live
+      - key: PAYMENT_SIMULATOR_ENABLED
+        value: "false"
+      - key: SUBSCRIPTIONS_FALLBACK_TO_ORDERS
+        value: "false"
+      - key: SKIP_ROUTE_TRANSFERS
+        value: "false"
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: RAZORPAY_FIGHTER_PLAN_ID
+        sync: false
+      - key: RAZORPAY_GYM_PLAN_ID
+        sync: false
+      - key: RAZORPAY_ACCOUNT_NUMBER
+        sync: false
+
+      # --- Object storage (uploads) ---
+      - key: STORAGE_DRIVER
+        value: s3
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_REGION
+        value: ap-south-1
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_PUBLIC_BASE_URL
+        sync: false
+
+      # --- Analytics / push (optional) ---
+      - key: ANALYTICS_SINK
+        value: none
+      - key: POSTHOG_API_KEY
+        sync: false
+      - key: EXPO_ACCESS_TOKEN
+        sync: false

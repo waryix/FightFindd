@@ -5,7 +5,7 @@ import { buildApp } from "./app.js";
 
 async function main() {
   const env = loadEnv();
-  const database = createDatabase(env.DATABASE_URL);
+  const database = createDatabase(env.DATABASE_URL, { max: env.DATABASE_POOL_MAX });
   const ctx = await createContext({ db: database.db, env });
   const app = await buildApp({ ctx });
 

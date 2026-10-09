@@ -60,11 +60,11 @@ pnpm dev:mobile                                # Expo dev server
 
 ### Demo accounts (OTP `123456` in development)
 
-| Role       | Identifier                          |
-| ---------- | ----------------------------------- |
-| Fighter    | `+919900000001` (Arjun Singh)       |
-| Gym owner  | `+919900000010` (Iron Fist MMA)     |
-| Admin      | `+919900000099`                     |
+| Role      | Identifier                      |
+| --------- | ------------------------------- |
+| Fighter   | `+919900000001` (Arjun Singh)   |
+| Gym owner | `+919900000010` (Iron Fist MMA) |
+| Admin     | `+919900000099`                 |
 
 ## Environment variables
 
@@ -97,6 +97,28 @@ pnpm db:studio      # browse data
 
 Distance filtering, sorting and pagination all run inside PostgreSQL (haversine expressions
 plus bounding-box index prefiltering). Fighters and gyms are never loaded wholesale into Node.
+
+### Supabase (managed PostgreSQL)
+
+The schema needs no extensions (only core `gen_random_uuid()`), so any Supabase project works.
+
+1. In Supabase, create the project and **disable the Data API** (Settings → API) so the
+   `public` schema is not exposed through PostgREST.
+2. Copy the **Session pooler** connection string (Project Settings → Database) — it is IPv4
+   compatible and supports prepared statements. Point `DATABASE_URL` at it with TLS:
+   ```bash
+   DATABASE_URL=postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=require
+   ```
+   For strict verification, add `&sslmode=verify-full&sslrootcert=/path/to/prod-ca-2021.crt`
+   (Supabase's CA certificate) and mount it next to the API.
+3. Apply migrations against the session pooler (never the transaction pooler):
+   ```bash
+   pnpm db:migrate
+   ```
+4. Set the same `DATABASE_URL` as a secret on the API host. Do **not** run `db:seed`,
+   `db:reset` or `db:studio` against production. Integration tests keep using the local
+   Docker database via `DATABASE_URL_TEST`.
+5. Set `DATABASE_POOL_MAX` (e.g. `5`) so multiple API replicas don't exhaust the pooler.
 
 ## Running the mobile app
 
@@ -149,12 +171,12 @@ tunnel. Webhooks verify the `X-Razorpay-Signature` HMAC over the raw body, dedup
 
 ### Money model
 
-| Flow | Customer | Merchant | Provider |
-| --- | --- | --- | --- |
-| Gym membership | Fighter | Gym (Razorpay Route linked account) | order + transfer |
-| Gym listing fee | Gym owner | FightFind | one-time order |
-| Gym platform plan | Gym owner | FightFind | subscription |
-| FightFind Pro | Fighter | FightFind | subscription |
+| Flow              | Customer  | Merchant                            | Provider         |
+| ----------------- | --------- | ----------------------------------- | ---------------- |
+| Gym membership    | Fighter   | Gym (Razorpay Route linked account) | order + transfer |
+| Gym listing fee   | Gym owner | FightFind                           | one-time order   |
+| Gym platform plan | Gym owner | FightFind                           | subscription     |
+| FightFind Pro     | Fighter   | FightFind                           | subscription     |
 
 Membership payments are transferred to the gym with `PLATFORM_COMMISSION_PERCENT`
 (default `0` = gym receives 100%). Payment state (captured) and membership state
@@ -177,15 +199,18 @@ out-of-order events, invalid signatures, wrong amounts, refunds and authorizatio
 
 ## Deployment
 
-- **API**: any Docker host (Railway/Render/Fly/VPS). `Dockerfile` builds the monorepo and runs
-  migrations on boot; `railway.json` is included. Set all secrets from `.env.example`.
+Full step-by-step instructions (Supabase + Render + Vercel + DNS + Razorpay) are in
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md). Summary:
+
+- **API**: Render (Docker). `Dockerfile` builds the monorepo and runs migrations on boot;
+  `render.yaml` is included as a Blueprint. Set all secrets from `.env.example`.
 - **Gym portal**: Vercel. Set `NEXT_PUBLIC_API_URL` to the API URL.
 - **Mobile**: EAS (`eas build`, `eas submit`). Set `EXPO_PUBLIC_API_URL` per profile.
 - **Mobile web**: Vercel. Set the project **Root Directory** to `frontend/apps/mobile`,
   build command `expo export -p web`, output directory `dist` (configured in
   `frontend/apps/mobile/vercel.json`). Add `EXPO_PUBLIC_API_URL` in Vercel env vars and add
   the deployment origin to the API's `CORS_ORIGINS`.
-- **Database**: managed PostgreSQL 15+ with connection pooling.
+- **Database**: Supabase PostgreSQL via the Session pooler (see `docs/DEPLOYMENT.md`).
 
 ## Security notes
 
