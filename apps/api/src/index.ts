@@ -8,8 +8,10 @@ import { matchRouter } from "./routes/matches";
 import { authRouter } from "./routes/auth";
 import { messageRouter } from "./routes/messages";
 import { requireAuth } from "./middleware/auth";
+import { seedIfEmpty } from "./config/db";
 
 dotenv.config();
+seedIfEmpty();
 
 const app = express();
 const PORT = process.env.PORT ?? 4000;

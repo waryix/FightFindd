@@ -1,7 +1,27 @@
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
 import { router } from "expo-router";
+import { useState } from "react";
+import { saveSession } from "../src/store/session";
+import { API_URL } from "../src/services/config";
 
 export default function LandingScreen() {
+  const [guestLoading, setGuestLoading] = useState(false);
+
+  const handleGuest = async () => {
+    setGuestLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/auth/guest`, { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) return;
+      await saveSession(data.fighter.id, data.access_token);
+      router.replace("/(tabs)/discover");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setGuestLoading(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.hero}>
@@ -25,6 +45,17 @@ export default function LandingScreen() {
           onPress={() => router.push("/(auth)/login")}
         >
           <Text style={styles.secondaryBtnText}>Log In</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.guestBtn}
+          onPress={handleGuest}
+          disabled={guestLoading}
+        >
+          {guestLoading
+            ? <ActivityIndicator color="#888" />
+            : <Text style={styles.guestBtnText}>Browse as Guest</Text>
+          }
         </TouchableOpacity>
 
         <Text style={styles.hint}>
@@ -74,5 +105,7 @@ const styles = StyleSheet.create({
     borderColor: "#2a2a2a",
   },
   secondaryBtnText: { color: "#ffffff", fontSize: 18, fontWeight: "600" },
+  guestBtn: { paddingVertical: 14, alignItems: "center" },
+  guestBtnText: { color: "#888888", fontSize: 15, fontWeight: "600" },
   hint: { color: "#555555", textAlign: "center", fontSize: 13, marginTop: 4 },
 });

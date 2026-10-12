@@ -1,9 +1,16 @@
 import { Router, type IRouter } from "express";
-import { supabase } from "../config/supabase";
+import { db, parseFighter } from "../config/db";
 
 export const fighterRouter: IRouter = Router();
 
-fighterRouter.get("/", async (req, res) => {
+const FIGHTER_COLUMNS = [
+  "name", "phone", "email", "city", "state", "latitude", "longitude",
+  "discipline", "skill_level", "weight_class", "age_years", "years_experience",
+  "height_cm", "weight_kg", "total_amateur_fights", "total_pro_fights",
+  "bio", "avatar_url", "push_token", "gym_id",
+];
+
+fighterRouter.get("/", (req, res) => {
   const {
     city, skill_level, weight_class, discipline, exclude_id,
     lat, lng, radius_km, min_experience, max_experience,
@@ -11,33 +18,35 @@ fighterRouter.get("/", async (req, res) => {
     min_fights, max_fights, search,
   } = req.query;
 
-  let query = supabase.from("fighters").select("*");
+  const where: string[] = [];
+  const params: any[] = [];
 
-  if (search) query = query.or(`name.ilike.%${search}%,city.ilike.%${search}%`);
-  if (city) query = query.ilike("city", `%${city}%`);
-  if (skill_level) query = query.eq("skill_level", skill_level);
-  if (weight_class) query = query.eq("weight_class", weight_class);
-  if (discipline) query = query.contains("discipline", [discipline]);
-  if (exclude_id) query = query.neq("id", exclude_id);
-  if (min_experience) query = query.gte("years_experience", Number(min_experience));
-  if (max_experience) query = query.lte("years_experience", Number(max_experience));
-  if (min_weight) query = query.gte("weight_kg", Number(min_weight));
-  if (max_weight) query = query.lte("weight_kg", Number(max_weight));
-  if (min_height) query = query.gte("height_cm", Number(min_height));
-  if (max_height) query = query.lte("height_cm", Number(max_height));
+  if (search) {
+    where.push("(name LIKE ? OR city LIKE ?)");
+    params.push(`%${search}%`, `%${search}%`);
+  }
+  if (city) { where.push("city LIKE ?"); params.push(`%${city}%`); }
+  if (skill_level) { where.push("skill_level = ?"); params.push(skill_level); }
+  if (weight_class) { where.push("weight_class = ?"); params.push(weight_class); }
+  if (discipline) { where.push("discipline LIKE ?"); params.push(`%"${discipline}"%`); }
+  if (exclude_id) { where.push("id != ?"); params.push(exclude_id); }
+  if (min_experience) { where.push("years_experience >= ?"); params.push(Number(min_experience)); }
+  if (max_experience) { where.push("years_experience <= ?"); params.push(Number(max_experience)); }
+  if (min_weight) { where.push("weight_kg >= ?"); params.push(Number(min_weight)); }
+  if (max_weight) { where.push("weight_kg <= ?"); params.push(Number(max_weight)); }
+  if (min_height) { where.push("height_cm >= ?"); params.push(Number(min_height)); }
+  if (max_height) { where.push("height_cm <= ?"); params.push(Number(max_height)); }
   if (min_fights) {
-    const min = Number(min_fights);
-    query = query.or(`total_amateur_fights.gte.${min},total_pro_fights.gte.${min}`);
+    where.push("(total_amateur_fights >= ? OR total_pro_fights >= ?)");
+    params.push(Number(min_fights), Number(min_fights));
   }
   if (max_fights) {
-    const max = Number(max_fights);
-    query = query.or(`total_amateur_fights.lte.${max},total_pro_fights.lte.${max}`);
+    where.push("(total_amateur_fights <= ? OR total_pro_fights <= ?)");
+    params.push(Number(max_fights), Number(max_fights));
   }
 
-  const { data, error } = await query;
-  if (error) { res.status(500).json({ error: error.message }); return; }
-
-  let fighters = data ?? [];
+  const sql = `SELECT * FROM fighters${where.length ? " WHERE " + where.join(" AND ") : ""}`;
+  let fighters = (db.prepare(sql).all(...params) as any[]).map(parseFighter);
 
   if (lat && lng && radius_km) {
     const userLat = parseFloat(lat as string);
@@ -55,45 +64,78 @@ fighterRouter.get("/", async (req, res) => {
   res.json({ fighters, count: fighters.length });
 });
 
-fighterRouter.get("/phone/:phone", async (req, res) => {
+fighterRouter.get("/phone/:phone", (req, res) => {
   const phone = decodeURIComponent(req.params.phone);
-  const { data, error } = await supabase.from("fighters").select("*").eq("phone", phone).single();
-  if (error || !data) { res.status(404).json({ fighter: null }); return; }
-  res.json({ fighter: data });
+  const row = db.prepare("SELECT * FROM fighters WHERE phone = ?").get(phone);
+  if (!row) { res.status(404).json({ fighter: null }); return; }
+  res.json({ fighter: parseFighter(row) });
 });
 
-fighterRouter.get("/email/:email", async (req, res) => {
+fighterRouter.get("/email/:email", (req, res) => {
   const email = decodeURIComponent(req.params.email);
-  const { data, error } = await supabase.from("fighters").select("*").eq("email", email).single();
-  if (error || !data) { res.status(404).json({ fighter: null }); return; }
-  res.json({ fighter: data });
+  const row = db.prepare("SELECT * FROM fighters WHERE email = ?").get(email);
+  if (!row) { res.status(404).json({ fighter: null }); return; }
+  res.json({ fighter: parseFighter(row) });
 });
 
-fighterRouter.get("/:id", async (req, res) => {
-  const { data, error } = await supabase.from("fighters").select("*").eq("id", req.params.id).single();
-  if (error) { res.status(404).json({ error: "Fighter not found" }); return; }
-  res.json({ fighter: data });
+fighterRouter.get("/:id", (req, res) => {
+  const row = db.prepare("SELECT * FROM fighters WHERE id = ?").get(req.params.id);
+  if (!row) { res.status(404).json({ error: "Fighter not found" }); return; }
+  res.json({ fighter: parseFighter(row) });
 });
 
-fighterRouter.post("/", async (req, res) => {
+fighterRouter.post("/", (req, res) => {
   const body = req.body as any;
-  const { data, error } = await supabase.from("fighters").insert({
-    name: body.name, phone: body.phone, email: body.email ?? null,
-    city: body.city, state: body.state,
-    latitude: body.latitude ?? 12.9716, longitude: body.longitude ?? 77.5946,
-    discipline: body.discipline, skill_level: body.skillLevel,
-    weight_class: body.weightClass, age_years: body.ageYears,
-    years_experience: body.yearsExperience, height_cm: body.heightCm ?? null,
-    weight_kg: body.weightKg ?? null, total_amateur_fights: body.totalAmateurFights ?? 0,
-    total_pro_fights: body.totalProFights ?? 0, bio: body.bio ?? null,
+  const id = crypto.randomUUID();
+  db.prepare(`
+    INSERT INTO fighters (id, name, phone, email, city, state, latitude, longitude,
+      discipline, skill_level, weight_class, age_years, years_experience, height_cm,
+      weight_kg, total_amateur_fights, total_pro_fights, bio, avatar_url)
+    VALUES (@id, @name, @phone, @email, @city, @state, @latitude, @longitude,
+      @discipline, @skill_level, @weight_class, @age_years, @years_experience, @height_cm,
+      @weight_kg, @total_amateur_fights, @total_pro_fights, @bio, @avatar_url)
+  `).run({
+    id,
+    name: body.name,
+    phone: body.phone ?? null,
+    email: body.email ?? null,
+    city: body.city ?? null,
+    state: body.state ?? null,
+    latitude: body.latitude ?? 12.9716,
+    longitude: body.longitude ?? 77.5946,
+    discipline: JSON.stringify(body.discipline ?? []),
+    skill_level: body.skillLevel ?? null,
+    weight_class: body.weightClass ?? null,
+    age_years: body.ageYears ?? 0,
+    years_experience: body.yearsExperience ?? 0,
+    height_cm: body.heightCm ?? null,
+    weight_kg: body.weightKg ?? null,
+    total_amateur_fights: body.totalAmateurFights ?? 0,
+    total_pro_fights: body.totalProFights ?? 0,
+    bio: body.bio ?? null,
     avatar_url: body.avatarUrl ?? null,
-  }).select().single();
-  if (error) { res.status(400).json({ error: error.message }); return; }
-  res.status(201).json({ fighter: data });
+  });
+  const row = db.prepare("SELECT * FROM fighters WHERE id = ?").get(id);
+  res.status(201).json({ fighter: parseFighter(row) });
 });
 
-fighterRouter.patch("/:id", async (req, res) => {
-  const { data, error } = await supabase.from("fighters").update(req.body).eq("id", req.params.id).select().single();
-  if (error) { res.status(400).json({ error: error.message }); return; }
-  res.json({ fighter: data });
+fighterRouter.patch("/:id", (req, res) => {
+  const body = req.body as Record<string, any>;
+  const sets: string[] = [];
+  const params: any[] = [];
+
+  for (const col of FIGHTER_COLUMNS) {
+    if (!(col in body)) continue;
+    sets.push(`${col} = ?`);
+    params.push(col === "discipline" ? JSON.stringify(body[col] ?? []) : body[col]);
+  }
+
+  if (sets.length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
+
+  params.push(req.params.id);
+  db.prepare(`UPDATE fighters SET ${sets.join(", ")} WHERE id = ?`).run(...params);
+
+  const row = db.prepare("SELECT * FROM fighters WHERE id = ?").get(req.params.id);
+  if (!row) { res.status(404).json({ error: "Fighter not found" }); return; }
+  res.json({ fighter: parseFighter(row) });
 });

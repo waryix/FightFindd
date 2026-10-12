@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { supabase } from "../config/supabase";
+import { db } from "../config/db";
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
@@ -16,13 +16,13 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     return;
   }
 
-  const { data, error } = await supabase.auth.getUser(token);
+  const session = db.prepare("SELECT * FROM sessions WHERE token = ?").get(token) as any;
 
-  if (error || !data.user) {
+  if (!session) {
     res.status(401).json({ error: "Invalid or expired token" });
     return;
   }
 
-  (req as any).user = data.user;
+  (req as any).user = { token, email: session.email, id: session.fighter_id };
   next();
 }

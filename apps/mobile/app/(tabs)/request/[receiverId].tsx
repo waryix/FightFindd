@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { getSession } from "../../../src/store/session";
+import { getSession, getToken } from "../../../src/store/session";
 import { API_URL } from "../../../src/services/config";
 import type { Discipline } from "@repo/types/fighter";
 
@@ -54,10 +54,14 @@ export default function RequestSparringScreen() {
       }
 
       const proposedDate = new Date(`${date}T${time}:00+05:30`).toISOString();
+      const token = await getToken();
 
       const response = await fetch(`${API_URL}/api/matches`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           sender_id: senderId,
           receiver_id: receiverId,

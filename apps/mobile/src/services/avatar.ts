@@ -1,8 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
-import { supabase } from "./supabase";
-import { Platform } from "react-native";
 
-export async function pickAndUploadAvatar(fighterId: string): Promise<string | null> {
+export async function pickAndUploadAvatar(_fighterId: string): Promise<string | null> {
   const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (status !== "granted") {
     throw new Error("Camera roll permission denied");
@@ -17,43 +15,10 @@ export async function pickAndUploadAvatar(fighterId: string): Promise<string | n
 
   if (result.canceled || !result.assets[0]) return null;
 
-  const asset = result.assets[0];
-  const uri = asset.uri;
-  const fileName = `${fighterId}.jpg`;
-  const contentType = "image/jpeg";
-
-  let blob: Blob;
-
-  if (Platform.OS === "web") {
-    // On web, uri is already a blob URL or data URL
-    const response = await fetch(uri);
-    blob = await response.blob();
-  } else {
-    // On native, fetch the file URI
-    const response = await fetch(uri);
-    blob = await response.blob();
-  }
-
-  const { error } = await supabase.storage
-    .from("avatars")
-    .upload(fileName, blob, {
-      contentType,
-      upsert: true,
-    });
-
-  if (error) throw new Error(error.message);
-
-  // Get clean public URL without any blob reference
-  const { data } = supabase.storage
-    .from("avatars")
-    .getPublicUrl(fileName);
-
-  return data.publicUrl;
+  // Local dev: use the picked asset URI directly (no remote storage).
+  return result.assets[0].uri;
 }
 
-export function getAvatarUrl(fighterId: string): string {
-  const { data } = supabase.storage
-    .from("avatars")
-    .getPublicUrl(`${fighterId}.jpg`);
-  return data.publicUrl;
+export function getAvatarUrl(_fighterId: string): string {
+  return "";
 }

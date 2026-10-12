@@ -1,4 +1,8 @@
 .env
 node_modules
 dist
+data/
+*.db
+*.db-shm
+*.db-wal
 fightfind-2d9c6-firebase-adminsdk-fbsvc-a284bb0a86.json

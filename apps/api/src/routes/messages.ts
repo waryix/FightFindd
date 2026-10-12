@@ -1,29 +1,27 @@
 import { Router, type IRouter } from "express";
-import { supabase } from "../config/supabase";
+import { db } from "../config/db";
 import { sendPushNotification } from "../services/notifications";
 
 export const messageRouter: IRouter = Router();
 
-messageRouter.get("/:matchId", async (req, res) => {
+messageRouter.get("/:matchId", (req, res) => {
   const { matchId } = req.params;
 
-  const { data, error } = await supabase
-    .from("messages")
-    .select("*")
-    .eq("match_id", matchId)
-    .order("created_at", { ascending: true });
+  const rows = db.prepare(
+    "SELECT * FROM messages WHERE match_id = ? ORDER BY created_at ASC"
+  ).all(matchId) as any[];
 
-  if (error) { res.status(500).json({ error: error.message }); return; }
+  const senderIds = [...new Set(rows.map(m => m.sender_id))];
+  const senderMap: Record<string, any> = {};
+  if (senderIds.length) {
+    const placeholders = senderIds.map(() => "?").join(",");
+    const fighters = db.prepare(
+      `SELECT id, name, avatar_url FROM fighters WHERE id IN (${placeholders})`
+    ).all(...senderIds) as any[];
+    for (const f of fighters) senderMap[f.id] = f;
+  }
 
-  const senderIds = [...new Set((data ?? []).map(m => m.sender_id))];
-  const { data: fighters } = await supabase
-    .from("fighters")
-    .select("id, name, avatar_url")
-    .in("id", senderIds);
-
-  const fighterMap = Object.fromEntries((fighters ?? []).map(f => [f.id, f]));
-  const enriched = (data ?? []).map(m => ({ ...m, sender: fighterMap[m.sender_id] ?? null }));
-
+  const enriched = rows.map(m => ({ ...m, sender: senderMap[m.sender_id] ?? null }));
   res.json({ messages: enriched });
 });
 
@@ -33,45 +31,28 @@ messageRouter.post("/:matchId", async (req, res) => {
 
   if (!content?.trim()) { res.status(400).json({ error: "Message cannot be empty" }); return; }
 
-  const { data, error } = await supabase
-    .from("messages")
-    .insert({ match_id: matchId, sender_id, content: content.trim() })
-    .select()
-    .single();
+  const id = crypto.randomUUID();
+  db.prepare(
+    "INSERT INTO messages (id, match_id, sender_id, content) VALUES (?, ?, ?, ?)"
+  ).run(id, matchId, sender_id, content.trim());
 
-  if (error) { res.status(400).json({ error: error.message }); return; }
+  const message = db.prepare("SELECT * FROM messages WHERE id = ?").get(id);
 
-  // Notify the other fighter
   try {
-    const { data: match } = await supabase
-      .from("sparring_requests")
-      .select("sender_id, receiver_id")
-      .eq("id", matchId)
-      .single();
+    const match = db.prepare(
+      "SELECT sender_id, receiver_id FROM sparring_requests WHERE id = ?"
+    ).get(matchId) as any;
 
     if (match) {
       const otherId = match.sender_id === sender_id ? match.receiver_id : match.sender_id;
-      const { data: other } = await supabase
-        .from("fighters")
-        .select("push_token, name")
-        .eq("id", otherId)
-        .single();
-      const { data: sender } = await supabase
-        .from("fighters")
-        .select("name")
-        .eq("id", sender_id)
-        .single();
+      const other = db.prepare("SELECT push_token, name FROM fighters WHERE id = ?").get(otherId) as any;
+      const sender = db.prepare("SELECT name FROM fighters WHERE id = ?").get(sender_id) as any;
 
       if (other?.push_token && sender?.name) {
-        await sendPushNotification(
-          other.push_token,
-          `${sender.name}`,
-          content.trim(),
-          { type: "message", matchId }
-        );
+        await sendPushNotification(other.push_token, `${sender.name}`, content.trim(), { type: "message", matchId });
       }
     }
   } catch (err: any) { console.error("Notification error:", err.message); }
 
-  res.status(201).json({ message: data });
+  res.status(201).json({ message });
 });
