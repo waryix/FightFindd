@@ -44,14 +44,28 @@ gymRouter.get("/:id", (req, res) => {
 
 gymRouter.post("/", (req, res) => {
   const body = req.body as any;
+
+  const orderId = body.payment_order_id ?? body.paymentOrderId;
+  if (!orderId) {
+    res.status(402).json({ error: "Payment required: a one-time ₹1000 registration fee must be paid first." });
+    return;
+  }
+  const payment = db.prepare(
+    "SELECT * FROM payments WHERE order_id = ? AND purpose = 'gym_registration' AND status = 'paid'"
+  ).get(orderId) as any;
+  if (!payment) {
+    res.status(402).json({ error: "Registration payment not found or not completed." });
+    return;
+  }
+
   const id = crypto.randomUUID();
   db.prepare(`
     INSERT INTO gyms (id, name, owner_name, phone, email, address, city, state, pincode,
       latitude, longitude, disciplines, monthly_fee_inr, has_trial_class, timings,
-      description, photo_urls, is_verified)
+      description, photo_urls, is_verified, registration_paid)
     VALUES (@id, @name, @owner_name, @phone, @email, @address, @city, @state, @pincode,
       @latitude, @longitude, @disciplines, @monthly_fee_inr, @has_trial_class, @timings,
-      @description, @photo_urls, @is_verified)
+      @description, @photo_urls, @is_verified, 1)
   `).run({
     id,
     name: body.name,
@@ -72,6 +86,40 @@ gymRouter.post("/", (req, res) => {
     photo_urls: JSON.stringify(body.photoUrls ?? body.photo_urls ?? []),
     is_verified: body.isVerified || body.is_verified ? 1 : 0,
   });
+
+  db.prepare("UPDATE payments SET entity_id = ? WHERE order_id = ?").run(id, orderId);
+
   const row = db.prepare("SELECT * FROM gyms WHERE id = ?").get(id);
   res.status(201).json({ gym: parseGym(row) });
+});
+
+const GYM_COLUMNS = [
+  "name", "owner_name", "phone", "email", "address", "city", "state", "pincode",
+  "latitude", "longitude", "disciplines", "monthly_fee_inr", "has_trial_class",
+  "timings", "description", "photo_urls", "is_verified",
+];
+
+gymRouter.patch("/:id", (req, res) => {
+  const body = req.body as Record<string, any>;
+  const sets: string[] = [];
+  const params: any[] = [];
+
+  for (const col of GYM_COLUMNS) {
+    if (!(col in body)) continue;
+    sets.push(`${col} = ?`);
+    params.push(
+      col === "disciplines" || col === "photo_urls"
+        ? JSON.stringify(body[col] ?? [])
+        : body[col]
+    );
+  }
+
+  if (sets.length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
+
+  params.push(req.params.id);
+  db.prepare(`UPDATE gyms SET ${sets.join(", ")} WHERE id = ?`).run(...params);
+
+  const row = db.prepare("SELECT * FROM gyms WHERE id = ?").get(req.params.id);
+  if (!row) { res.status(404).json({ error: "Gym not found" }); return; }
+  res.json({ gym: parseGym(row) });
 });

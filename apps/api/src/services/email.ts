@@ -58,6 +58,39 @@ export function isEmailConfigured(): boolean {
   return Boolean(BREVO_API_KEY && SENDER_EMAIL);
 }
 
+export async function verifySenderConfiguration(): Promise<void> {
+  if (!isEmailConfigured()) {
+    console.warn("[brevo] Not configured (BREVO_API_KEY / BREVO_SENDER_EMAIL missing) - OTP emails will only be logged to the console.");
+    return;
+  }
+
+  try {
+    const response = await fetch("https://api.brevo.com/v3/senders", {
+      headers: { "api-key": BREVO_API_KEY as string, Accept: "application/json" },
+    });
+
+    if (!response.ok) {
+      console.warn(`[brevo] Could not verify senders (HTTP ${response.status}).`);
+      return;
+    }
+
+    const data = await response.json() as { senders?: Array<{ email: string; active: boolean }> };
+    const active = (data.senders ?? []).filter(s => s.active).map(s => s.email.toLowerCase());
+
+    if (!active.includes((SENDER_EMAIL as string).toLowerCase())) {
+      console.warn(
+        `[brevo] SENDER MISCONFIG: "${SENDER_EMAIL}" is not a validated sender. ` +
+        `Brevo will reject outbound emails. Validated senders: ${active.join(", ") || "(none)"}. ` +
+        `Fix BREVO_SENDER_EMAIL in apps/api/.env or validate this sender in Brevo.`
+      );
+    } else {
+      console.log(`[brevo] Sender "${SENDER_EMAIL}" is validated.`);
+    }
+  } catch (err: any) {
+    console.warn("[brevo] Sender verification failed:", err.message);
+  }
+}
+
 export async function sendOtpEmail(email: string, code: string): Promise<SendResult> {
   if (!isEmailConfigured()) {
     console.log(`[dev otp] email ${email} -> ${code} (Brevo not configured)`);
@@ -86,6 +119,9 @@ export async function sendOtpEmail(email: string, code: string): Promise<SendRes
       console.error(`Brevo send failed (${response.status}): ${detail}`);
       return { sent: false, dev: false, error: `Brevo error ${response.status}` };
     }
+
+    const body = await response.json().catch(() => ({})) as { messageId?: string };
+    console.log(`[brevo] Queued OTP to ${email} (messageId: ${body.messageId ?? "unknown"})`);
 
     return { sent: true, dev: false };
   } catch (err: any) {

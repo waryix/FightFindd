@@ -7,11 +7,14 @@ import { gymRouter } from "./routes/gyms";
 import { matchRouter } from "./routes/matches";
 import { authRouter } from "./routes/auth";
 import { messageRouter } from "./routes/messages";
+import { paymentRouter } from "./routes/payments";
 import { requireAuth } from "./middleware/auth";
 import { seedIfEmpty } from "./config/db";
+import { verifySenderConfiguration } from "./services/email";
 
 dotenv.config();
 seedIfEmpty();
+verifySenderConfiguration();
 
 const app = express();
 const PORT = process.env.PORT ?? 4000;
@@ -35,6 +38,7 @@ app.get("/health", (_req, res) => {
 app.use("/api/auth", authRouter);
 app.use("/api/fighters", fighterRouter);
 app.use("/api/gyms", gymRouter);
+app.use("/api/payments", paymentRouter);
 app.use("/api/matches", requireAuth, matchRouter);
 app.use("/api/messages", requireAuth, messageRouter);
 

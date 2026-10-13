@@ -95,7 +95,33 @@ db.exec(`
     last_sent_at INTEGER NOT NULL,
     created_at TEXT DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS payments (
+    id TEXT PRIMARY KEY,
+    order_id TEXT,
+    payment_id TEXT,
+    amount INTEGER NOT NULL,
+    currency TEXT DEFAULT 'INR',
+    purpose TEXT NOT NULL,
+    entity_id TEXT,
+    status TEXT DEFAULT 'created',
+    created_at TEXT DEFAULT (datetime('now')),
+    paid_at TEXT
+  );
 `);
+
+function ensureColumn(table: string, column: string, ddl: string) {
+  const cols = db.pragma(`table_info(${table})`) as Array<{ name: string }>;
+  if (!cols.some(c => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  }
+}
+
+ensureColumn("gyms", "registration_paid", "registration_paid INTEGER DEFAULT 0");
+ensureColumn("gyms", "monthly_status", "monthly_status TEXT DEFAULT 'inactive'");
+ensureColumn("gyms", "next_billing_at", "next_billing_at TEXT");
+ensureColumn("gyms", "last_payment_id", "last_payment_id TEXT");
+ensureColumn("fighters", "is_pro", "is_pro INTEGER DEFAULT 0");
 
 function parseJson<T>(value: unknown, fallback: T): T {
   if (typeof value !== "string") return fallback;

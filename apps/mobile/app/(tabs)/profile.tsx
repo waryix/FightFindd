@@ -3,11 +3,14 @@ import { router } from "expo-router";
 import { useState, useEffect } from "react";
 import { getSession, clearSession } from "../../src/store/session";
 import { API_URL } from "../../src/services/config";
+import { upgradeToPro, PRO_PRICE } from "../../src/services/payments";
 import Avatar from "../../src/components/Avatar";
 
 export default function ProfileScreen() {
   const [fighter, setFighter] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [upgrading, setUpgrading] = useState(false);
+  const [proMsg, setProMsg] = useState("");
 
   useEffect(() => { loadProfile(); }, []);
 
@@ -25,6 +28,21 @@ export default function ProfileScreen() {
   const handleLogout = async () => {
     await clearSession();
     router.replace("/");
+  };
+
+  const handleUpgrade = async () => {
+    const fighterId = await getSession();
+    if (!fighterId) return;
+    setUpgrading(true);
+    setProMsg("");
+    const result = await upgradeToPro(fighterId);
+    if (result.success) {
+      setProMsg("You're now a Pro member!");
+      await loadProfile();
+    } else {
+      setProMsg(result.error ?? "Upgrade failed");
+    }
+    setUpgrading(false);
   };
 
   if (loading) return <View style={styles.center}><ActivityIndicator color="#e63946" size="large" /></View>;
@@ -100,6 +118,24 @@ export default function ProfileScreen() {
         </View>
       ) : null}
 
+      <View style={styles.proCard}>
+        <View style={styles.proHeader}>
+          <Text style={styles.proTitle}>FightFind Pro</Text>
+          {fighter.is_pro ? <View style={styles.proBadge}><Text style={styles.proBadgeText}>PRO</Text></View> : null}
+        </View>
+        {fighter.is_pro ? (
+          <Text style={styles.proText}>You have Pro. Priority visibility and a Pro badge on your profile.</Text>
+        ) : (
+          <>
+            <Text style={styles.proText}>Stand out with a Pro badge and priority in search results.</Text>
+            {proMsg ? <Text style={styles.proMsg}>{proMsg}</Text> : null}
+            <TouchableOpacity style={styles.proBtn} onPress={handleUpgrade} disabled={upgrading}>
+              <Text style={styles.proBtnText}>{upgrading ? "Processing…" : `Upgrade to Pro · ₹${PRO_PRICE}`}</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+
       <TouchableOpacity style={styles.editBtn} onPress={() => router.push("/(tabs)/edit-profile")}>
         <Text style={styles.editBtnText}>Edit Profile</Text>
       </TouchableOpacity>
@@ -134,6 +170,15 @@ const styles = StyleSheet.create({
   chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: "#1a1a1a", borderWidth: 1, borderColor: "#2a2a2a" },
   chipText: { color: "#aaa", fontSize: 13, textTransform: "capitalize" },
   bioText: { fontSize: 14, color: "#888", lineHeight: 20 },
+  proCard: { backgroundColor: "#141414", borderRadius: 16, padding: 18, borderWidth: 1, borderColor: "#e6394655", marginBottom: 16, gap: 10 },
+  proHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
+  proTitle: { fontSize: 16, fontWeight: "800", color: "#fff" },
+  proBadge: { backgroundColor: "#e6394622", borderWidth: 1, borderColor: "#e63946", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
+  proBadgeText: { color: "#e63946", fontSize: 11, fontWeight: "800", letterSpacing: 1 },
+  proText: { fontSize: 13, color: "#888", lineHeight: 18 },
+  proMsg: { fontSize: 13, color: "#22c55e" },
+  proBtn: { backgroundColor: "#e63946", borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 4 },
+  proBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
   editBtn: { backgroundColor: "#1a1a1a", borderRadius: 12, paddingVertical: 14, alignItems: "center", borderWidth: 1, borderColor: "#e63946", marginBottom: 10 },
   editBtnText: { color: "#e63946", fontSize: 16, fontWeight: "600" },
   logoutBtn: { backgroundColor: "#1a1a1a", borderRadius: 12, paddingVertical: 14, alignItems: "center", borderWidth: 1, borderColor: "#2a2a2a" },
