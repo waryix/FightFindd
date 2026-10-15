@@ -1,5 +1,6 @@
-import { API_URL } from "./api";
-import { authHeaders } from "./auth";
+import { Platform } from "react-native";
+import { API_URL } from "./config";
+import { gymAuthHeaders } from "./gymAuth";
 
 export interface OrderInfo {
   id: string;
@@ -15,12 +16,12 @@ export interface PaymentResult {
   signature: string;
 }
 
-async function post<T>(path: string, body: unknown, auth = false): Promise<T> {
+async function post<T>(path: string, body: unknown, auth = true): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(auth ? authHeaders() : {}),
+      ...(auth ? await gymAuthHeaders() : {}),
     },
     body: JSON.stringify(body),
   });
@@ -30,47 +31,34 @@ async function post<T>(path: string, body: unknown, auth = false): Promise<T> {
 }
 
 export function createGymOrder(): Promise<{ order: OrderInfo; amount: number }> {
-  return post("/api/payments/gym/order", {}, true);
+  return post("/api/payments/gym/order", {});
 }
 
 export function createMonthlyOrder(gymId: string): Promise<{ order: OrderInfo; amount: number }> {
-  return post("/api/payments/gym/monthly/order", { gymId }, true);
+  return post("/api/payments/gym/monthly/order", { gymId });
 }
 
-export async function verifyPayment(
-  orderId: string,
-  paymentId: string,
-  signature: string
-): Promise<void> {
-  await post("/api/payments/verify", { orderId, paymentId, signature });
-}
-
-declare global {
-  interface Window {
-    Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
-  }
-}
-
-interface RazorpayHandlerResponse {
-  razorpay_payment_id: string;
-  razorpay_signature: string;
+export async function verifyPayment(orderId: string, paymentId: string, signature: string): Promise<void> {
+  await post("/api/payments/verify", { orderId, paymentId, signature }, false);
 }
 
 function loadRazorpayScript(): Promise<boolean> {
   return new Promise((resolve) => {
-    if (typeof window === "undefined") return resolve(false);
-    if (window.Razorpay) return resolve(true);
-    const script = document.createElement("script");
+    const doc = (globalThis as any).document;
+    if (!doc) return resolve(false);
+    if ((globalThis as any).Razorpay) return resolve(true);
+    const script = doc.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.onload = () => resolve(true);
     script.onerror = () => resolve(false);
-    document.body.appendChild(script);
+    doc.body.appendChild(script);
   });
 }
 
 /**
- * Runs checkout for an order. In mock mode (dummy keys) it skips the real
- * Razorpay widget and returns a simulated payment id so the flow is testable.
+ * Runs checkout for an order. In mock mode (dummy keys) it simulates a payment
+ * so the flow is testable. Live keys open the Razorpay widget on web; a native
+ * Razorpay build would be required for in-app live checkout.
  */
 export async function checkout(order: OrderInfo, description: string): Promise<PaymentResult> {
   if (order.mock) {
@@ -78,26 +66,29 @@ export async function checkout(order: OrderInfo, description: string): Promise<P
     return { paymentId: `pay_mock_${Date.now()}`, signature: "mock_signature" };
   }
 
+  if (Platform.OS !== "web") {
+    throw new Error("Live checkout isn't available in this build. Start a mock payment or use a native Razorpay build.");
+  }
+
   const loaded = await loadRazorpayScript();
   if (!loaded) throw new Error("Could not load Razorpay checkout");
 
   return new Promise<PaymentResult>((resolve, reject) => {
-    const rzp = new window.Razorpay!({
+    const RazorpayCtor = (globalThis as any).Razorpay;
+    const rzp = new RazorpayCtor({
       key: order.keyId,
       amount: order.amount,
       currency: order.currency,
       name: "FightFind",
       description,
       order_id: order.id,
-      handler: (response: RazorpayHandlerResponse) => {
+      handler: (response: { razorpay_payment_id: string; razorpay_signature: string }) => {
         resolve({
           paymentId: response.razorpay_payment_id,
           signature: response.razorpay_signature,
         });
       },
-      modal: {
-        ondismiss: () => reject(new Error("Payment cancelled")),
-      },
+      modal: { ondismiss: () => reject(new Error("Payment cancelled")) },
       theme: { color: "#e63946" },
     });
     rzp.open();

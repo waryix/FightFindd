@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   myMessageTime: { color: "#ffaaaa", textAlign: "right" },
   theirMessageTime: { color: "#555" },
   inputRow: { flexDirection: "row", gap: 10, padding: 12, backgroundColor: "#141414", borderTopWidth: 1, borderTopColor: "#2a2a2a", alignItems: "flex-end" },
-  input: { flex: 1, backgroundColor: "#1a1a1a", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15, borderWidth: 1, borderColor: "#2a2a2a", maxHeight: 100 },
+  input: { flex: 1, backgroundColor: "#1a1a1a", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15, color: "#ffffff", borderWidth: 1, borderColor: "#2a2a2a", maxHeight: 100 },
   sendBtn: { backgroundColor: "#e63946", borderRadius: 20, paddingHorizontal: 18, paddingVertical: 10 },
   sendBtnDisabled: { opacity: 0.4 },
   sendBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },

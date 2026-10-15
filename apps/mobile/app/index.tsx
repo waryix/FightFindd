@@ -1,9 +1,8 @@
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from "react-native";
 import { router } from "expo-router";
 import { useState } from "react";
-import * as Linking from "expo-linking";
 import { saveSession } from "../src/store/session";
-import { API_URL, WEB_URL } from "../src/services/config";
+import { API_URL } from "../src/services/config";
 
 export default function LandingScreen() {
   const [guestLoading, setGuestLoading] = useState(false);
@@ -23,12 +22,8 @@ export default function LandingScreen() {
     }
   };
 
-  const handleGymOwner = async () => {
-    try {
-      await Linking.openURL(`${WEB_URL}/gyms/register`);
-    } catch (err) {
-      console.error("Could not open gym owner registration", err);
-    }
+  const handleGymOwner = () => {
+    router.push("/gym-owner");
   };
 
   return (

@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 28, fontWeight: "800", color: "#fff" },
   headerSub: { fontSize: 14, color: "#666", marginTop: 2 },
   searchRow: { flexDirection: "row", alignItems: "center", marginHorizontal: 16, marginBottom: 10, backgroundColor: "#1a1a1a", borderRadius: 12, borderWidth: 1, borderColor: "#2a2a2a", paddingHorizontal: 14 },
-  searchInput: { flex: 1, paddingVertical: 12, fontSize: 15 },
+  searchInput: { flex: 1, paddingVertical: 12, fontSize: 15, color: "#ffffff" },
   clearSearch: { padding: 6 },
   clearSearchText: { color: "#555", fontSize: 14 },
   filterRow: { marginBottom: 8 },

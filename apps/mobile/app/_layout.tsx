@@ -1,7 +1,7 @@
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator, Platform } from "react-native";
 import { getSession, saveSession } from "../src/store/session";
 import { registerForPushNotifications, setupNotificationHandlers } from "../src/services/notifications";
 import { API_URL } from "../src/services/config";
@@ -14,6 +14,22 @@ export default function RootLayout() {
   useEffect(() => {
     setupNotificationHandlers();
     checkSession();
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const doc = (globalThis as any).document;
+    if (!doc) return;
+    const style = doc.createElement("style");
+    style.id = "ff-web-focus-reset";
+    style.textContent = `
+      input:focus, textarea:focus, select:focus { outline: none !important; }
+      [role="tab"]:focus, [role="tab"]:focus-visible, a:focus, button:focus { outline: none !important; }
+    `;
+    doc.head.appendChild(style);
+    return () => {
+      if (style.parentNode) style.parentNode.removeChild(style);
+    };
   }, []);
 
   useEffect(() => {
@@ -79,6 +95,7 @@ export default function RootLayout() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="gym-owner" options={{ headerShown: false }} />
       </Stack>
     </>
   );

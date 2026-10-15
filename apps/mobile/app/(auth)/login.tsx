@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 32, fontWeight: "800", color: "#fff", lineHeight: 40, marginBottom: 8 },
   subtitle: { fontSize: 15, color: "#888", marginBottom: 32 },
   label: { fontSize: 12, fontWeight: "600", color: "#555", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, marginTop: 20 },
-  input: { backgroundColor: "#1a1a1a", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, borderWidth: 1, borderColor: "#2a2a2a" },
+  input: { backgroundColor: "#1a1a1a", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, color: "#ffffff", borderWidth: 1, borderColor: "#2a2a2a" },
   methodHint: { marginTop: 10, backgroundColor: "#1a1a1a", borderRadius: 8, padding: 12, borderWidth: 1, borderColor: "#2a2a2a" },
   methodHintText: { color: "#888", fontSize: 13 },
   btn: { backgroundColor: "#e63946", paddingVertical: 16, borderRadius: 12, alignItems: "center", marginTop: 28 },
