@@ -1,5 +1,6 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, RefreshControl } from "react-native";
 import { useState, useEffect } from "react";
+import { Ionicons } from "@expo/vector-icons";
 import { API_URL } from "../../src/services/config";
 
 const DISCIPLINE_FILTERS = ["all", "boxing", "mma", "muay_thai", "kickboxing", "bjj", "wrestling"];
@@ -17,6 +18,10 @@ export default function GymsScreen() {
   const [search, setSearch] = useState("");
   const [searchDebounce, setSearchDebounce] = useState("");
   const [trialOnly, setTrialOnly] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+
+  const activeFilterCount = (filter ? 1 : 0) + (trialOnly ? 1 : 0);
 
   useEffect(() => {
     const timer = setTimeout(() => setSearchDebounce(search), 500);
@@ -25,8 +30,14 @@ export default function GymsScreen() {
 
   useEffect(() => { fetchGyms(); }, [filter, searchDebounce, trialOnly]);
 
-  const fetchGyms = async () => {
-    setLoading(true);
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchGyms(true);
+    setRefreshing(false);
+  };
+
+  const fetchGyms = async (silent = false) => {
+    if (!silent) setLoading(true);
     setError("");
     try {
       const params = new URLSearchParams();
@@ -39,7 +50,7 @@ export default function GymsScreen() {
       if (!response.ok) { setError(data.error); return; }
       setGyms(data.gyms);
     } catch { setError("Could not connect to server"); }
-    finally { setLoading(false); }
+    finally { if (!silent) setLoading(false); }
   };
 
   const renderGym = ({ item }: { item: any }) => (
@@ -78,7 +89,7 @@ export default function GymsScreen() {
         {item.monthly_fee_inr && (
           <View style={styles.metaItem}>
             <Text style={styles.metaLabel}>Monthly Fee</Text>
-            <Text style={styles.metaValue}>?{item.monthly_fee_inr.toLocaleString("en-IN")}</Text>
+            <Text style={styles.metaValue}>₹{item.monthly_fee_inr.toLocaleString("en-IN")}</Text>
           </View>
         )}
       </View>
@@ -105,59 +116,74 @@ export default function GymsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Nearby Gyms</Text>
-        <Text style={styles.headerSub}>Boxing, MMA and combat sports gyms</Text>
+        <View>
+          <Text style={styles.headerTitle}>Nearby Gyms</Text>
+          <Text style={styles.headerSub}>Boxing, MMA and combat sports gyms</Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.filterBtn, activeFilterCount > 0 && styles.filterBtnActive]}
+          onPress={() => setShowFilters(v => !v)}
+        >
+          <Ionicons name="funnel-outline" size={14} color={activeFilterCount > 0 ? "#e63946" : "#666666"} />
+          <Text style={[styles.filterBtnText, activeFilterCount > 0 && styles.filterBtnTextActive]}>
+            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.searchRow}>
+        <Ionicons name="search" size={16} color="#555555" />
         <TextInput
           style={styles.searchInput}
           placeholder="Search gyms by name or city..."
           placeholderTextColor="#444"
           value={search}
           onChangeText={setSearch}
-          color="#fff"
         />
         {search.length > 0 && (
           <TouchableOpacity style={styles.clearSearch} onPress={() => setSearch("")}>
-            <Text style={styles.clearSearchText}>?</Text>
+            <Ionicons name="close-circle" size={16} color="#555555" />
           </TouchableOpacity>
         )}
       </View>
 
-      <View style={styles.filterRow}>
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={DISCIPLINE_FILTERS}
-          keyExtractor={item => item}
-          contentContainerStyle={styles.filterList}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.filterChip, (item === "all" ? filter === null : filter === item) && styles.filterChipActive]}
-              onPress={() => setFilter(item === "all" ? null : item)}
-            >
-              <Text style={[styles.filterChipText, (item === "all" ? filter === null : filter === item) && styles.filterChipTextActive]}>
-                {item === "all" ? "All" : item.replace("_", " ")}
-              </Text>
-            </TouchableOpacity>
-          )}
-        />
-      </View>
+      {showFilters ? (
+        <View style={styles.filterPanel}>
+          <View style={styles.filterRow}>
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={DISCIPLINE_FILTERS}
+              keyExtractor={item => item}
+              contentContainerStyle={styles.filterList}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.filterChip, (item === "all" ? filter === null : filter === item) && styles.filterChipActive]}
+                  onPress={() => setFilter(item === "all" ? null : item)}
+                >
+                  <Text style={[styles.filterChipText, (item === "all" ? filter === null : filter === item) && styles.filterChipTextActive]}>
+                    {item === "all" ? "All" : item.replace("_", " ")}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
 
-      <TouchableOpacity
-        style={[styles.trialToggle, trialOnly && styles.trialToggleActive]}
-        onPress={() => setTrialOnly(!trialOnly)}
-      >
-        <Text style={[styles.trialToggleText, trialOnly && styles.trialToggleTextActive]}>
-          {trialOnly ? "Showing: Free trial only" : "Show free trial gyms only"}
-        </Text>
-      </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.trialToggle, trialOnly && styles.trialToggleActive]}
+            onPress={() => setTrialOnly(!trialOnly)}
+          >
+            <Text style={[styles.trialToggleText, trialOnly && styles.trialToggleTextActive]}>
+              {trialOnly ? "Showing: Free trial only" : "Show free trial gyms only"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       {loading ? (
         <View style={styles.center}><ActivityIndicator color="#e63946" size="large" /><Text style={styles.loadingText}>Finding gyms...</Text></View>
       ) : error ? (
-        <View style={styles.center}><Text style={styles.errorText}>{error}</Text><TouchableOpacity style={styles.retryBtn} onPress={fetchGyms}><Text style={styles.retryBtnText}>Retry</Text></TouchableOpacity></View>
+        <View style={styles.center}><Text style={styles.errorText}>{error}</Text><TouchableOpacity style={styles.retryBtn} onPress={() => fetchGyms()}><Text style={styles.retryBtnText}>Retry</Text></TouchableOpacity></View>
       ) : gyms.length === 0 ? (
         <View style={styles.center}>
           <Text style={styles.emptyText}>No gyms found</Text>
@@ -170,6 +196,7 @@ export default function GymsScreen() {
           renderItem={renderGym}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e63946" colors={["#e63946"]} />}
         />
       )}
     </View>
@@ -178,13 +205,17 @@ export default function GymsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0a0a0a" },
-  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8 },
+  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
   headerTitle: { fontSize: 28, fontWeight: "800", color: "#fff" },
   headerSub: { fontSize: 14, color: "#666", marginTop: 2 },
-  searchRow: { flexDirection: "row", alignItems: "center", marginHorizontal: 16, marginBottom: 10, backgroundColor: "#1a1a1a", borderRadius: 12, borderWidth: 1, borderColor: "#2a2a2a", paddingHorizontal: 14 },
+  filterBtn: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#1a1a1a", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: "#2a2a2a", marginTop: 4 },
+  filterBtnActive: { backgroundColor: "#e6394622", borderColor: "#e63946" },
+  filterBtnText: { color: "#666666", fontSize: 13, fontWeight: "600" },
+  filterBtnTextActive: { color: "#e63946" },
+  searchRow: { flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 16, marginBottom: 10, backgroundColor: "#1a1a1a", borderRadius: 12, borderWidth: 1, borderColor: "#2a2a2a", paddingHorizontal: 14 },
   searchInput: { flex: 1, paddingVertical: 12, fontSize: 15, color: "#ffffff" },
   clearSearch: { padding: 6 },
-  clearSearchText: { color: "#555", fontSize: 14 },
+  filterPanel: { marginBottom: 4 },
   filterRow: { marginBottom: 8 },
   filterList: { paddingHorizontal: 16, gap: 8 },
   filterChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: "#1a1a1a", borderWidth: 1, borderColor: "#2a2a2a" },
@@ -195,7 +226,7 @@ const styles = StyleSheet.create({
   trialToggleActive: { backgroundColor: "#22c55e22", borderColor: "#22c55e" },
   trialToggleText: { color: "#666", fontSize: 13, fontWeight: "500" },
   trialToggleTextActive: { color: "#22c55e" },
-  list: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
+  list: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24, gap: 12 },
   card: { backgroundColor: "#141414", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "#2a2a2a" },
   cardHeader: { flexDirection: "row", gap: 14, marginBottom: 12 },
   gymIcon: { width: 52, height: 52, borderRadius: 14, backgroundColor: "#1a1a1a", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#2a2a2a" },

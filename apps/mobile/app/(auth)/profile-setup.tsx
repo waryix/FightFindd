@@ -216,7 +216,7 @@ export default function ProfileSetupScreen() {
       <TextInput style={styles.textArea} placeholder="Tell potential sparring partners about your style..." placeholderTextColor="#444" value={bio} onChangeText={setBio} multiline numberOfLines={4} color="#fff" textAlignVertical="top" />
 
       <TouchableOpacity style={[styles.btn, !isValid && styles.btnDisabled]} onPress={handleSubmit} disabled={!isValid || loading}>
-        <Text style={styles.btnText}>{loading ? "Creating profile..." : "Start Finding Partners ?"}</Text>
+        <Text style={styles.btnText}>{loading ? "Creating profile..." : "Start Finding Partners →"}</Text>
       </TouchableOpacity>
     </ScrollView>
   );

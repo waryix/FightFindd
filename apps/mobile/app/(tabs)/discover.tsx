@@ -1,10 +1,11 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, ScrollView, TextInput } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, ScrollView, TextInput, RefreshControl } from "react-native";
 import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import * as Location from "expo-location";
 import { getSession } from "../../src/store/session";
 import { API_URL } from "../../src/services/config";
 import Avatar from "../../src/components/Avatar";
+import { Ionicons } from "@expo/vector-icons";
 import type { Discipline, SkillLevel, WeightClass } from "@repo/types/fighter";
 
 const DISCIPLINES: Discipline[] = ["boxing", "mma", "kickboxing", "muay_thai", "bjj", "wrestling"];
@@ -54,6 +55,7 @@ export default function DiscoverScreen() {
   const [appliedFilters, setAppliedFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [search, setSearch] = useState("");
   const [searchDebounce, setSearchDebounce] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => { loadMyId(); }, []);
   useEffect(() => { if (myId !== null) fetchFighters(); }, [myId, appliedFilters, searchDebounce]);
@@ -77,8 +79,14 @@ export default function DiscoverScreen() {
     } catch { setLocationError("Could not get location"); return null; }
   };
 
-  const fetchFighters = async () => {
-    setLoading(true);
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchFighters(true);
+    setRefreshing(false);
+  };
+
+  const fetchFighters = async (silent = false) => {
+    if (!silent) setLoading(true);
     setError("");
     try {
       const params = new URLSearchParams();
@@ -107,7 +115,7 @@ export default function DiscoverScreen() {
       if (!response.ok) { setError(data.error); return; }
       setFighters(data.fighters);
     } catch { setError("Could not connect to server"); }
-    finally { setLoading(false); }
+    finally { if (!silent) setLoading(false); }
   };
 
   const activeFilterCount = Object.entries(appliedFilters).filter(([key, val]) => {
@@ -171,7 +179,10 @@ export default function DiscoverScreen() {
         {item.bio ? <Text style={styles.bio} numberOfLines={2}>{item.bio}</Text> : null}
 
         <View style={styles.cardFooter}>
-          <Text style={styles.viewProfile}>View full profile ?</Text>
+          <View style={styles.viewProfileRow}>
+            <Text style={styles.viewProfile}>View full profile</Text>
+            <Ionicons name="arrow-forward" size={14} color="#e63946" />
+          </View>
           <TouchableOpacity
             style={styles.requestBtn}
             onPress={(e) => {
@@ -202,6 +213,7 @@ export default function DiscoverScreen() {
           style={[styles.filterBtn, activeFilterCount > 0 && styles.filterBtnActive]}
           onPress={() => setShowFilters(true)}
         >
+          <Ionicons name="funnel-outline" size={14} color={activeFilterCount > 0 ? "#e63946" : "#666666"} />
           <Text style={[styles.filterBtnText, activeFilterCount > 0 && styles.filterBtnTextActive]}>
             Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
           </Text>
@@ -209,18 +221,18 @@ export default function DiscoverScreen() {
       </View>
 
       <View style={styles.searchRow}>
+        <Ionicons name="search" size={16} color="#555555" />
         <TextInput
           style={styles.searchInput}
           placeholder="Search by name or city..."
           placeholderTextColor="#444"
           value={search}
           onChangeText={setSearch}
-          color="#fff"
           returnKeyType="search"
         />
         {search.length > 0 && (
           <TouchableOpacity style={styles.clearSearch} onPress={() => setSearch("")}>
-            <Text style={styles.clearSearchText}>?</Text>
+            <Ionicons name="close-circle" size={16} color="#555555" />
           </TouchableOpacity>
         )}
       </View>
@@ -252,7 +264,7 @@ export default function DiscoverScreen() {
       {loading ? (
         <View style={styles.center}><ActivityIndicator color="#e63946" size="large" /><Text style={styles.loadingText}>Finding fighters...</Text></View>
       ) : error ? (
-        <View style={styles.center}><Text style={styles.errorText}>{error}</Text><TouchableOpacity style={styles.retryBtn} onPress={fetchFighters}><Text style={styles.retryBtnText}>Retry</Text></TouchableOpacity></View>
+        <View style={styles.center}><Text style={styles.errorText}>{error}</Text><TouchableOpacity style={styles.retryBtn} onPress={() => fetchFighters()}><Text style={styles.retryBtnText}>Retry</Text></TouchableOpacity></View>
       ) : fighters.length === 0 ? (
         <View style={styles.center}>
           <Text style={styles.emptyText}>No fighters found</Text>
@@ -266,6 +278,7 @@ export default function DiscoverScreen() {
           renderItem={renderFighter}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e63946" colors={["#e63946"]} />}
         />
       )}
 
@@ -353,21 +366,20 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
   headerTitle: { fontSize: 28, fontWeight: "800", color: "#fff" },
   headerSub: { fontSize: 14, color: "#666", marginTop: 2 },
-  filterBtn: { backgroundColor: "#1a1a1a", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: "#2a2a2a", marginTop: 4 },
+  filterBtn: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#1a1a1a", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: "#2a2a2a", marginTop: 4 },
   filterBtnActive: { backgroundColor: "#e6394622", borderColor: "#e63946" },
   filterBtnText: { color: "#666", fontSize: 13, fontWeight: "600" },
   filterBtnTextActive: { color: "#e63946" },
-  searchRow: { flexDirection: "row", alignItems: "center", marginHorizontal: 16, marginBottom: 10, backgroundColor: "#1a1a1a", borderRadius: 12, borderWidth: 1, borderColor: "#2a2a2a", paddingHorizontal: 14 },
+  searchRow: { flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 16, marginBottom: 10, backgroundColor: "#1a1a1a", borderRadius: 12, borderWidth: 1, borderColor: "#2a2a2a", paddingHorizontal: 14 },
   searchInput: { flex: 1, paddingVertical: 12, fontSize: 15, color: "#ffffff" },
   clearSearch: { padding: 6 },
-  clearSearchText: { color: "#555", fontSize: 14 },
   disciplineRow: { marginBottom: 8 },
   filterList: { paddingHorizontal: 16, gap: 8 },
   filterChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: "#1a1a1a", borderWidth: 1, borderColor: "#2a2a2a" },
   filterChipActive: { backgroundColor: "#e63946", borderColor: "#e63946" },
   filterChipText: { color: "#666", fontSize: 13, fontWeight: "500", textTransform: "capitalize" },
   filterChipTextActive: { color: "#fff" },
-  list: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
+  list: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 24, gap: 12 },
   card: { backgroundColor: "#141414", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "#2a2a2a" },
   cardTop: { flexDirection: "row", gap: 14, marginBottom: 10 },
   cardInfo: { flex: 1, gap: 4 },
@@ -388,7 +400,8 @@ const styles = StyleSheet.create({
   disciplineChipText: { fontSize: 12, color: "#888", textTransform: "capitalize" },
   bio: { fontSize: 13, color: "#666", lineHeight: 18, marginBottom: 10 },
   cardFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
-  viewProfile: { color: "#555", fontSize: 13 },
+  viewProfileRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  viewProfile: { color: "#e63946", fontSize: 13, fontWeight: "600" },
   requestBtn: { backgroundColor: "#e6394622", borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1, borderColor: "#e6394655" },
   requestBtnText: { color: "#e63946", fontSize: 13, fontWeight: "600" },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: 32 },

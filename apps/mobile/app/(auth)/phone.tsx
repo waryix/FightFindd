@@ -42,7 +42,7 @@ export default function PhoneScreen() {
 
       <View style={styles.inputRow}>
         <View style={styles.countryCode}>
-          <Text style={styles.countryCodeText}>???? +91</Text>
+          <Text style={styles.countryCodeText}>🇮🇳 +91</Text>
         </View>
         <TextInput
           style={styles.input}

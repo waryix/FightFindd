@@ -1,10 +1,17 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from "react-native";
 import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import { getSession, getToken } from "../../src/store/session";
 import { API_URL } from "../../src/services/config";
 
 type MatchStatus = "pending" | "accepted" | "declined" | "completed" | "cancelled";
+
+const SKILL_COLOR: Record<string, string> = {
+  beginner: "#3b82f6",
+  intermediate: "#f59e0b",
+  advanced: "#8b5cf6",
+  professional: "#22c55e",
+};
 
 const STATUS_COLOR: Record<MatchStatus, string> = {
   pending: "#f59e0b",
@@ -28,15 +35,22 @@ export default function MatchesScreen() {
   const [error, setError] = useState("");
   const [tab, setTab] = useState<"received" | "sent">("received");
   const [myId, setMyId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => { loadMyId(); }, []);
   useEffect(() => { if (myId) fetchMatches(); }, [myId]);
 
   const loadMyId = async () => { const id = await getSession(); setMyId(id); };
 
-  const fetchMatches = async () => {
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchMatches(true);
+    setRefreshing(false);
+  };
+
+  const fetchMatches = async (silent = false) => {
     if (!myId) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError("");
     try {
       const tok = await getToken();
@@ -47,7 +61,7 @@ export default function MatchesScreen() {
       if (!response.ok) { setError(data.error); return; }
       setMatches(data.matches);
     } catch { setError("Could not connect to server"); }
-    finally { setLoading(false); }
+    finally { if (!silent) setLoading(false); }
   };
 
   const updateStatus = async (id: string, status: MatchStatus) => {
@@ -108,10 +122,14 @@ export default function MatchesScreen() {
         </View>
 
         {otherFighter && (
-          <View style={styles.fighterMeta}>
-            <Text style={styles.fighterMetaText}>
-              {otherFighter.skill_level} · {otherFighter.weight_class?.replace("_", " ")} · {otherFighter.city}
-            </Text>
+          <View style={styles.fighterTags}>
+            {otherFighter.skill_level ? (
+              <View style={[styles.skillTag, { backgroundColor: (SKILL_COLOR[otherFighter.skill_level] ?? "#888") + "22", borderColor: SKILL_COLOR[otherFighter.skill_level] ?? "#888" }]}>
+                <Text style={[styles.skillTagText, { color: SKILL_COLOR[otherFighter.skill_level] ?? "#888" }]}>{otherFighter.skill_level}</Text>
+              </View>
+            ) : null}
+            {otherFighter.weight_class ? <View style={styles.tag}><Text style={styles.tagText}>{otherFighter.weight_class.replace("_", " ")}</Text></View> : null}
+            {otherFighter.city ? <View style={styles.tag}><Text style={styles.tagText}>{otherFighter.city}</Text></View> : null}
           </View>
         )}
 
@@ -181,14 +199,21 @@ export default function MatchesScreen() {
       {loading ? (
         <View style={styles.center}><ActivityIndicator color="#e63946" size="large" /><Text style={styles.loadingText}>Loading matches...</Text></View>
       ) : error ? (
-        <View style={styles.center}><Text style={styles.errorText}>{error}</Text><TouchableOpacity style={styles.retryBtn} onPress={fetchMatches}><Text style={styles.retryBtnText}>Retry</Text></TouchableOpacity></View>
+        <View style={styles.center}><Text style={styles.errorText}>{error}</Text><TouchableOpacity style={styles.retryBtn} onPress={() => fetchMatches()}><Text style={styles.retryBtnText}>Retry</Text></TouchableOpacity></View>
       ) : displayed.length === 0 ? (
         <View style={styles.center}>
           <Text style={styles.emptyText}>{tab === "received" ? "No requests received yet" : "No requests sent yet"}</Text>
           <Text style={styles.emptySubText}>{tab === "received" ? "When fighters request to spar with you, they'll appear here" : "Go to Discover and send a sparring request"}</Text>
         </View>
       ) : (
-        <FlatList data={displayed} keyExtractor={item => item.id} renderItem={renderMatch} contentContainerStyle={styles.list} showsVerticalScrollIndicator={false} />
+        <FlatList
+          data={displayed}
+          keyExtractor={item => item.id}
+          renderItem={renderMatch}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e63946" colors={["#e63946"]} />}
+        />
       )}
     </View>
   );
@@ -204,7 +229,7 @@ const styles = StyleSheet.create({
   tabBtnActive: { backgroundColor: "#e63946" },
   tabBtnText: { fontSize: 14, fontWeight: "600", color: "#666" },
   tabBtnTextActive: { color: "#fff" },
-  list: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
+  list: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 24, gap: 12 },
   card: { backgroundColor: "#141414", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "#2a2a2a" },
   cardTop: { flexDirection: "row", gap: 12, marginBottom: 8, alignItems: "flex-start" },
   avatar: { width: 46, height: 46, borderRadius: 23, backgroundColor: "#e63946", alignItems: "center", justifyContent: "center" },
@@ -216,8 +241,11 @@ const styles = StyleSheet.create({
   date: { fontSize: 11, color: "#555" },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
   statusText: { fontSize: 11, fontWeight: "700", textTransform: "capitalize" },
-  fighterMeta: { backgroundColor: "#1a1a1a", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 8 },
-  fighterMetaText: { color: "#666", fontSize: 12, textTransform: "capitalize" },
+  fighterTags: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 },
+  skillTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1 },
+  skillTagText: { fontSize: 11, fontWeight: "600", textTransform: "capitalize" },
+  tag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: "#1a1a1a", borderWidth: 1, borderColor: "#2a2a2a" },
+  tagText: { fontSize: 11, color: "#888", textTransform: "capitalize" },
   message: { fontSize: 13, color: "#666", fontStyle: "italic", marginBottom: 12, lineHeight: 18 },
   actions: { flexDirection: "row", gap: 10 },
   declineBtn: { flex: 1, backgroundColor: "#1a1a1a", borderRadius: 10, paddingVertical: 10, alignItems: "center", borderWidth: 1, borderColor: "#2a2a2a" },

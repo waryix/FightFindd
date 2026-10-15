@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { getSession, getToken } from "../../../src/store/session";
 import { API_URL } from "../../../src/services/config";
+import { DateTimeField } from "../../../src/components/DateTimeField";
 import type { Discipline } from "@repo/types/fighter";
 
 const LOCATIONS = [
@@ -26,14 +27,14 @@ export default function RequestSparringScreen() {
   const [discipline, setDiscipline] = useState<Discipline | null>(
     disciplines.length === 1 ? disciplines[0]! : null
   );
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
+  const [dateValue, setDateValue] = useState<Date | null>(null);
+  const [timeValue, setTimeValue] = useState<Date | null>(null);
   const [location, setLocation] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const isValid = discipline && date && time && location;
+  const isValid = discipline && dateValue && timeValue && location;
 
   const handleSubmit = async () => {
     if (!isValid) {
@@ -51,7 +52,9 @@ export default function RequestSparringScreen() {
         return;
       }
 
-      const proposedDate = new Date(`${date}T${time}:00+05:30`).toISOString();
+      const when = new Date(dateValue as Date);
+      when.setHours((timeValue as Date).getHours(), (timeValue as Date).getMinutes(), 0, 0);
+      const proposedDate = when.toISOString();
       const token = await getToken();
 
       const response = await fetch(`${API_URL}/api/matches`, {
@@ -117,25 +120,11 @@ export default function RequestSparringScreen() {
         ))}
       </View>
 
-      <Text style={styles.label}>Date * (YYYY-MM-DD)</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="e.g. 2026-07-15"
-        placeholderTextColor="#444"
-        value={date}
-        onChangeText={setDate}
-        color="#fff"
-      />
+      <Text style={styles.label}>Date *</Text>
+      <DateTimeField mode="date" value={dateValue} onChange={setDateValue} placeholder="Select a date" />
 
-      <Text style={styles.label}>Time * (HH:MM)</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="e.g. 07:00"
-        placeholderTextColor="#444"
-        value={time}
-        onChangeText={setTime}
-        color="#fff"
-      />
+      <Text style={styles.label}>Time *</Text>
+      <DateTimeField mode="time" value={timeValue} onChange={setTimeValue} placeholder="Select a time" />
 
       <Text style={styles.label}>Location *</Text>
       <View style={styles.locationOptions}>

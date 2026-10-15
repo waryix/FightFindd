@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { supabase } from "../../src/services/supabase";
 import { saveGymSession } from "../../src/services/gymAuth";
+import { OtpInput } from "../../src/components/OtpInput";
 
 export default function GymOwnerLogin() {
   const { next } = useLocalSearchParams<{ next?: string }>();
@@ -75,16 +76,8 @@ export default function GymOwnerLogin() {
 
         {stage === "otp" ? (
           <>
-            <Text style={styles.label}>Verification code</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="6-digit code"
-              placeholderTextColor="#444"
-              keyboardType="number-pad"
-              maxLength={6}
-              value={otp}
-              onChangeText={(v) => setOtp(v.replace(/[^0-9]/g, ""))}
-            />
+            <Text style={styles.otpLabel}>Enter the 6-digit code sent to your email</Text>
+            <OtpInput value={otp} onChange={setOtp} />
           </>
         ) : null}
 
@@ -116,6 +109,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 30, fontWeight: "800", color: "#ffffff", marginBottom: 8 },
   subtitle: { fontSize: 15, color: "#888888", marginBottom: 24, lineHeight: 22 },
   label: { fontSize: 12, fontWeight: "600", color: "#555555", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, marginTop: 16 },
+  otpLabel: { fontSize: 14, color: "#888888", marginTop: 24, marginBottom: 16 },
   input: { backgroundColor: "#1a1a1a", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, color: "#ffffff", borderWidth: 1, borderColor: "#2a2a2a" },
   btn: { backgroundColor: "#e63946", paddingVertical: 16, borderRadius: 12, alignItems: "center", marginTop: 28 },
   btnDisabled: { opacity: 0.4 },
