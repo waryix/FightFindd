@@ -5,8 +5,6 @@ import { getSession, getToken } from "../../../src/store/session";
 import { API_URL } from "../../../src/services/config";
 import type { Discipline } from "@repo/types/fighter";
 
-const DISCIPLINES: Discipline[] = ["boxing", "mma", "kickboxing", "muay_thai", "bjj", "wrestling"];
-
 const LOCATIONS = [
   "Knockout Boxing Club, Indiranagar",
   "Iron Fist MMA, Koramangala",

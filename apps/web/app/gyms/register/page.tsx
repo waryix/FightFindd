@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { API_URL } from "../../lib/api";
-import { DISCIPLINES, label, type Gym, type GymDiscipline } from "../../lib/types";
-import { createGymOrder, checkout, verifyPayment } from "../../lib/payments";
+import { API_URL } from "../../../lib/api";
+import { authHeaders, getEmail, isLoggedIn } from "../../../lib/auth";
+import { DISCIPLINES, label, type Gym, type GymDiscipline } from "../../../lib/types";
+import { createGymOrder, checkout, verifyPayment } from "../../../lib/payments";
 
 const REGISTRATION_FEE = 1000;
 
@@ -28,6 +29,14 @@ export default function RegisterPage() {
   const [step, setStep] = useState<"idle" | "paying" | "creating">("idle");
   const [error, setError] = useState("");
   const [created, setCreated] = useState<Gym | null>(null);
+
+  useEffect(() => {
+    if (!isLoggedIn()) {
+      router.replace("/gyms/login?next=/gyms/register");
+      return;
+    }
+    setEmail(getEmail() ?? "");
+  }, [router]);
 
   const toggleDiscipline = (d: GymDiscipline) => {
     setDisciplines((prev) =>
@@ -63,7 +72,7 @@ export default function RegisterPage() {
       setStep("creating");
       const response = await fetch(`${API_URL}/api/gyms`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
           name: name.trim(),
           ownerName: ownerName.trim(),
@@ -88,13 +97,7 @@ export default function RegisterPage() {
         return;
       }
 
-      const gym = data.gym as Gym;
-      try {
-        localStorage.setItem("fightfind_gym_id", gym.id);
-      } catch {
-        /* ignore storage errors */
-      }
-      setCreated(gym);
+      setCreated(data.gym as Gym);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
@@ -116,8 +119,8 @@ export default function RegisterPage() {
             your gym is now listed.
           </p>
           <div className="heroActions" style={{ justifyContent: "center" }}>
-            <button className="btnPrimary" onClick={() => router.push("/manage")}>
-              Manage your gym
+            <button className="btnPrimary" onClick={() => router.push("/gyms/portal")}>
+              Go to your portal
             </button>
           </div>
         </div>
@@ -156,8 +159,8 @@ export default function RegisterPage() {
           </div>
 
           <div className="field fieldFull">
-            <label className="label" htmlFor="email">Email</label>
-            <input id="email" type="email" className="input" placeholder="gym@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <label className="label" htmlFor="email">Email (login)</label>
+            <input id="email" type="email" className="input" value={email} disabled />
           </div>
 
           <div className="field fieldFull">

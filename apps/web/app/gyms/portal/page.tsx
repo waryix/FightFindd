@@ -1,25 +1,27 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
-import { API_URL } from "../../lib/api";
-import { DISCIPLINES, label, type Gym, type GymDiscipline } from "../../lib/types";
-import { createMonthlyOrder, checkout, verifyPayment } from "../../lib/payments";
+import { useRouter } from "next/navigation";
+import { API_URL } from "../../../lib/api";
+import { authHeaders, clearSession, getEmail, isLoggedIn } from "../../../lib/auth";
+import { DISCIPLINES, label, type Gym, type GymDiscipline } from "../../../lib/types";
+import { createMonthlyOrder, checkout, verifyPayment } from "../../../lib/payments";
 
 const MONTHLY_FEE = 300;
-const STORAGE_KEY = "fightfind_gym_id";
 
-export default function ManagePage() {
-  const [gymId, setGymId] = useState<string | null>(null);
-  const [idInput, setIdInput] = useState("");
+export default function PortalPage() {
+  const router = useRouter();
+
+  const [email, setEmail] = useState("");
   const [gym, setGym] = useState<Gym | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [needsRegister, setNeedsRegister] = useState(false);
 
   const [name, setName] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
@@ -39,7 +41,7 @@ export default function ManagePage() {
     setName(g.name ?? "");
     setOwnerName(g.owner_name ?? "");
     setPhone(g.phone ?? "");
-    setEmail(g.email ?? "");
+    setContactEmail(g.email ?? "");
     setAddress(g.address ?? "");
     setCity(g.city ?? "");
     setState(g.state ?? "");
@@ -51,19 +53,22 @@ export default function ManagePage() {
     setDescription(g.description ?? "");
   }, []);
 
-  const loadGym = useCallback(async (id: string) => {
+  const loadGym = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`${API_URL}/api/gyms/${id}`);
+      const response = await fetch(`${API_URL}/api/gyms/mine`, {
+        headers: { ...authHeaders() },
+      });
       const data = await response.json();
       if (!response.ok) {
         setError(data.error ?? "Could not load your gym.");
-        setGym(null);
         return;
       }
-      setGym(data.gym as Gym);
-      fillForm(data.gym as Gym);
+      const mine = data.gym as Gym | null;
+      setGym(mine);
+      setNeedsRegister(!mine);
+      if (mine) fillForm(mine);
     } catch {
       setError("Could not connect to the server.");
     } finally {
@@ -72,42 +77,17 @@ export default function ManagePage() {
   }, [fillForm]);
 
   useEffect(() => {
-    let stored: string | null = null;
-    try {
-      stored = localStorage.getItem(STORAGE_KEY);
-    } catch {
-      /* ignore */
+    if (!isLoggedIn()) {
+      router.replace("/gyms/login?next=/gyms/portal");
+      return;
     }
-    if (stored) {
-      setGymId(stored);
-      loadGym(stored);
-    } else {
-      setLoading(false);
-    }
-  }, [loadGym]);
+    setEmail(getEmail() ?? "");
+    loadGym();
+  }, [router, loadGym]);
 
-  const handleLoad = (e: React.FormEvent) => {
-    e.preventDefault();
-    const id = idInput.trim();
-    if (!id) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, id);
-    } catch {
-      /* ignore */
-    }
-    setGymId(id);
-    loadGym(id);
-  };
-
-  const handleForget = () => {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      /* ignore */
-    }
-    setGymId(null);
-    setGym(null);
-    setIdInput("");
+  const handleLogout = () => {
+    clearSession();
+    router.replace("/gyms/login");
   };
 
   const toggleDiscipline = (d: GymDiscipline) => {
@@ -125,12 +105,12 @@ export default function ManagePage() {
     try {
       const response = await fetch(`${API_URL}/api/gyms/${gym.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
           name: name.trim(),
           owner_name: ownerName.trim(),
           phone: phone.trim(),
-          email: email.trim() || null,
+          email: contactEmail.trim() || null,
           address: address.trim(),
           city: city.trim(),
           state: state.trim(),
@@ -165,8 +145,8 @@ export default function ManagePage() {
       const { order } = await createMonthlyOrder(gym.id);
       const payment = await checkout(order, `FightFind gym monthly fee (₹${MONTHLY_FEE})`);
       await verifyPayment(order.id, payment.paymentId, payment.signature);
-      setPayMsg(`Monthly fee paid. Thanks!`);
-      await loadGym(gym.id);
+      setPayMsg("Monthly fee paid. Thanks!");
+      await loadGym();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Payment failed. Please try again.");
     } finally {
@@ -178,28 +158,24 @@ export default function ManagePage() {
     return <div className="container"><div className="empty">Loading…</div></div>;
   }
 
-  if (!gymId) {
+  if (needsRegister) {
     return (
       <div className="container" style={{ maxWidth: 560 }}>
-        <span className="eyebrow">Manage</span>
+        <span className="eyebrow">Your portal</span>
         <h1 className="heroTitle" style={{ fontSize: 34, marginTop: 10 }}>
-          Manage your gym
+          No gym yet
         </h1>
         <p className="heroSub" style={{ marginBottom: 20 }}>
-          Enter the gym ID you received when you registered.
+          {email} isn&apos;t linked to a gym listing yet. Register your gym to get started.
         </p>
-        <form className="formCard" onSubmit={handleLoad}>
-          <div className="field">
-            <label className="label" htmlFor="gid">Gym ID</label>
-            <input id="gid" className="input" placeholder="e.g. c9972b8c-…" value={idInput} onChange={(e) => setIdInput(e.target.value)} />
-          </div>
-          <div className="formActions">
-            <button type="submit" className="btnPrimary">Open my gym</button>
-            <span className="hint">
-              Don&apos;t have one? <Link href="/register" style={{ color: "var(--accent)" }}>Register →</Link>
-            </span>
-          </div>
-        </form>
+        <div className="heroActions">
+          <button className="btnPrimary" onClick={() => router.push("/gyms/register")}>
+            Register your gym
+          </button>
+          <button className="btnGhost" onClick={handleLogout}>
+            Log out
+          </button>
+        </div>
       </div>
     );
   }
@@ -208,7 +184,7 @@ export default function ManagePage() {
     return (
       <div className="container" style={{ maxWidth: 560 }}>
         <div className="errorBox">{error || "Gym not found."}</div>
-        <button className="btnGhost" onClick={handleForget}>Use a different gym ID</button>
+        <button className="btnGhost" onClick={handleLogout}>Log out</button>
       </div>
     );
   }
@@ -217,13 +193,17 @@ export default function ManagePage() {
 
   return (
     <div className="container" style={{ maxWidth: 820 }}>
-      <span className="eyebrow">Manage</span>
+      <span className="eyebrow">Your portal</span>
       <h1 className="heroTitle" style={{ fontSize: 34, marginTop: 10 }}>
         {gym.name}
       </h1>
 
       <div className="gymCard" style={{ marginTop: 20, marginBottom: 24 }}>
         <div className="gymMeta">
+          <div>
+            <div className="metaLabel">Signed in as</div>
+            <div className="metaValue">{email}</div>
+          </div>
           <div>
             <div className="metaLabel">Registration</div>
             <div className="metaValue" style={{ color: gym.registration_paid ? "var(--green)" : "var(--accent)" }}>
@@ -272,8 +252,8 @@ export default function ManagePage() {
             <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
           <div className="field fieldFull">
-            <label className="label">Email</label>
-            <input type="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <label className="label">Contact email</label>
+            <input type="email" className="input" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
           </div>
           <div className="field fieldFull">
             <label className="label">Address</label>
@@ -325,8 +305,8 @@ export default function ManagePage() {
           <button type="submit" className="btnPrimary" disabled={saving}>
             {saving ? "Saving…" : "Save changes"}
           </button>
-          <button type="button" className="btnGhost" onClick={handleForget}>
-            Not your gym?
+          <button type="button" className="btnGhost" onClick={handleLogout}>
+            Log out
           </button>
         </div>
       </form>

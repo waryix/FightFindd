@@ -1,8 +1,11 @@
 node_modules
+.turbo
 apps/mobile
 apps/web
 apps/docs
+apps/api/data
 .git
+.gitignore
 *.log
 apps/api/.env
 apps/api/fightfind-2d9c6-firebase-adminsdk-fbsvc-a284bb0a86.json

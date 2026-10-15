@@ -1,4 +1,5 @@
 import { API_URL } from "./api";
+import { authHeaders } from "./auth";
 
 export interface OrderInfo {
   id: string;
@@ -14,10 +15,13 @@ export interface PaymentResult {
   signature: string;
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function post<T>(path: string, body: unknown, auth = false): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(auth ? authHeaders() : {}),
+    },
     body: JSON.stringify(body),
   });
   const data = await response.json();
@@ -26,11 +30,11 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 }
 
 export function createGymOrder(): Promise<{ order: OrderInfo; amount: number }> {
-  return post("/api/payments/gym/order", {});
+  return post("/api/payments/gym/order", {}, true);
 }
 
 export function createMonthlyOrder(gymId: string): Promise<{ order: OrderInfo; amount: number }> {
-  return post("/api/payments/gym/monthly/order", { gymId });
+  return post("/api/payments/gym/monthly/order", { gymId }, true);
 }
 
 export async function verifyPayment(

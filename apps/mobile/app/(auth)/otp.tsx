@@ -53,7 +53,7 @@ export default function OtpScreen() {
           params: { phone, email, name, token: token ?? "" },
         });
       }
-    } catch (err: any) {
+    } catch {
       setError("Something went wrong. Try again.");
     } finally {
       setLoading(false);

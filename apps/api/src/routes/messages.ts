@@ -1,28 +1,38 @@
 import { Router, type IRouter } from "express";
+import { asc, eq } from "drizzle-orm";
 import { db } from "../config/db";
+import { messages, sparringRequests } from "../db/schema";
+import { getFightersByUserIds } from "../db/loaders";
+import { mapMessage } from "../db/mappers";
 import { sendPushNotification } from "../services/notifications";
 
 export const messageRouter: IRouter = Router();
 
-messageRouter.get("/:matchId", (req, res) => {
+messageRouter.get("/:matchId", async (req, res) => {
   const { matchId } = req.params;
 
-  const rows = db.prepare(
-    "SELECT * FROM messages WHERE match_id = ? ORDER BY created_at ASC"
-  ).all(matchId) as any[];
+  try {
+    const rows = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.matchId, matchId))
+      .orderBy(asc(messages.createdAt));
 
-  const senderIds = [...new Set(rows.map(m => m.sender_id))];
-  const senderMap: Record<string, any> = {};
-  if (senderIds.length) {
-    const placeholders = senderIds.map(() => "?").join(",");
-    const fighters = db.prepare(
-      `SELECT id, name, avatar_url FROM fighters WHERE id IN (${placeholders})`
-    ).all(...senderIds) as any[];
-    for (const f of fighters) senderMap[f.id] = f;
+    const senderIds = [...new Set(rows.map((m) => m.senderId))];
+    const fighters = await getFightersByUserIds(senderIds);
+    const senderMap: Record<string, any> = {};
+    for (const f of fighters) {
+      senderMap[f.id] = { id: f.id, name: f.name, avatar_url: f.avatar_url };
+    }
+
+    const enriched = rows.map((m) => ({
+      ...mapMessage(m),
+      sender: senderMap[m.senderId] ?? null,
+    }));
+    res.json({ messages: enriched });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
-
-  const enriched = rows.map(m => ({ ...m, sender: senderMap[m.sender_id] ?? null }));
-  res.json({ messages: enriched });
 });
 
 messageRouter.post("/:matchId", async (req, res) => {
@@ -31,28 +41,41 @@ messageRouter.post("/:matchId", async (req, res) => {
 
   if (!content?.trim()) { res.status(400).json({ error: "Message cannot be empty" }); return; }
 
-  const id = crypto.randomUUID();
-  db.prepare(
-    "INSERT INTO messages (id, match_id, sender_id, content) VALUES (?, ?, ?, ?)"
-  ).run(id, matchId, sender_id, content.trim());
-
-  const message = db.prepare("SELECT * FROM messages WHERE id = ?").get(id);
-
   try {
-    const match = db.prepare(
-      "SELECT sender_id, receiver_id FROM sparring_requests WHERE id = ?"
-    ).get(matchId) as any;
+    const message = (
+      await db
+        .insert(messages)
+        .values({ matchId, senderId: sender_id, content: content.trim() })
+        .returning()
+    )[0];
 
-    if (match) {
-      const otherId = match.sender_id === sender_id ? match.receiver_id : match.sender_id;
-      const other = db.prepare("SELECT push_token, name FROM fighters WHERE id = ?").get(otherId) as any;
-      const sender = db.prepare("SELECT name FROM fighters WHERE id = ?").get(sender_id) as any;
+    try {
+      const match = (
+        await db
+          .select()
+          .from(sparringRequests)
+          .where(eq(sparringRequests.id, matchId))
+          .limit(1)
+      )[0];
 
-      if (other?.push_token && sender?.name) {
-        await sendPushNotification(other.push_token, `${sender.name}`, content.trim(), { type: "message", matchId });
+      if (match) {
+        const otherId = match.senderId === sender_id ? match.receiverId : match.senderId;
+        const fighters = await getFightersByUserIds([otherId, sender_id]);
+        const other = fighters.find((f) => f.id === otherId);
+        const sender = fighters.find((f) => f.id === sender_id);
+        if (other?.push_token && sender?.name) {
+          await sendPushNotification(other.push_token, `${sender.name}`, content.trim(), {
+            type: "message",
+            matchId,
+          });
+        }
       }
+    } catch (err: any) {
+      console.error("Notification error:", err.message);
     }
-  } catch (err: any) { console.error("Notification error:", err.message); }
 
-  res.status(201).json({ message });
+    res.status(201).json({ message: mapMessage(message) });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
 });

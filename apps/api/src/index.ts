@@ -9,11 +9,9 @@ import { authRouter } from "./routes/auth";
 import { messageRouter } from "./routes/messages";
 import { paymentRouter } from "./routes/payments";
 import { requireAuth } from "./middleware/auth";
-import { seedIfEmpty } from "./config/db";
 import { verifySenderConfiguration } from "./services/email";
 
 dotenv.config();
-seedIfEmpty();
 verifySenderConfiguration();
 
 const app = express();

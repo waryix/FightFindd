@@ -77,7 +77,7 @@ export default function EditProfileScreen() {
       setSelectedDisciplines(f.discipline ?? []);
       setSkillLevel(f.skill_level ?? null);
       setWeightClass(f.weight_class ?? null);
-    } catch (err: any) {
+    } catch {
       setError("Network error");
     } finally {
       setLoading(false);

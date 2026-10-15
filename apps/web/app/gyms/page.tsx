@@ -29,7 +29,7 @@ const STEPS = [
   { n: 3, title: "Go live on FightFind", text: "Your gym appears in the FightFind app for fighters across India." },
 ];
 
-export default function HomePage() {
+export default function GymsHomePage() {
   return (
     <div className="container">
       <section className="hero">
@@ -42,11 +42,11 @@ export default function HomePage() {
           kickboxers, Muay Thai and BJJ athletes training across India.
         </p>
         <div className="heroActions">
-          <Link href="/register" className="btnPrimary">
+          <Link href="/gyms/register" className="btnPrimary">
             Register your gym
           </Link>
-          <Link href="/manage" className="btnGhost">
-            Manage your gym
+          <Link href="/gyms/login" className="btnGhost">
+            Gym owner login
           </Link>
         </div>
       </section>

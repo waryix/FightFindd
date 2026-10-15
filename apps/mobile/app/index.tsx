@@ -1,8 +1,9 @@
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from "react-native";
 import { router } from "expo-router";
 import { useState } from "react";
+import * as Linking from "expo-linking";
 import { saveSession } from "../src/store/session";
-import { API_URL } from "../src/services/config";
+import { API_URL, WEB_URL } from "../src/services/config";
 
 export default function LandingScreen() {
   const [guestLoading, setGuestLoading] = useState(false);
@@ -22,8 +23,20 @@ export default function LandingScreen() {
     }
   };
 
+  const handleGymOwner = async () => {
+    try {
+      await Linking.openURL(`${WEB_URL}/gyms/register`);
+    } catch (err) {
+      console.error("Could not open gym owner registration", err);
+    }
+  };
+
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.hero}>
         <View style={styles.logoBox}>
           <Text style={styles.logoText}>FF</Text>
@@ -58,11 +71,21 @@ export default function LandingScreen() {
           }
         </TouchableOpacity>
 
+        <TouchableOpacity style={styles.gymOwnerCard} onPress={handleGymOwner}>
+          <View style={styles.gymOwnerAccent} />
+          <View style={styles.gymOwnerBody}>
+            <Text style={styles.gymOwnerTitle}>Own a gym?</Text>
+            <Text style={styles.gymOwnerText}>
+              If you are a gym owner, register here →
+            </Text>
+          </View>
+        </TouchableOpacity>
+
         <Text style={styles.hint}>
           For boxers, MMA fighters, kickboxers across India
         </Text>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -70,8 +93,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0a0a0a",
-    paddingHorizontal: 24,
+  },
+  content: {
+    flexGrow: 1,
     justifyContent: "space-between",
+    paddingHorizontal: 24,
     paddingTop: 100,
     paddingBottom: 60,
   },
@@ -107,5 +133,26 @@ const styles = StyleSheet.create({
   secondaryBtnText: { color: "#ffffff", fontSize: 18, fontWeight: "600" },
   guestBtn: { paddingVertical: 14, alignItems: "center" },
   guestBtnText: { color: "#888888", fontSize: 15, fontWeight: "600" },
+  gymOwnerCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#141414",
+    borderWidth: 1,
+    borderColor: "#2a2a2a",
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginTop: 4,
+  },
+  gymOwnerAccent: {
+    width: 4,
+    alignSelf: "stretch",
+    borderRadius: 2,
+    backgroundColor: "#e63946",
+  },
+  gymOwnerBody: { flex: 1 },
+  gymOwnerTitle: { color: "#ffffff", fontSize: 15, fontWeight: "700" },
+  gymOwnerText: { color: "#e63946", fontSize: 13, fontWeight: "600", marginTop: 2 },
   hint: { color: "#555555", textAlign: "center", fontSize: 13, marginTop: 4 },
 });

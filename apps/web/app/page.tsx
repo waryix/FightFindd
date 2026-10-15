@@ -1,4 +1,5 @@
 import Image, { type ImageProps } from "next/image";
+import Link from "next/link";
 import { Button } from "@repo/ui/button";
 import styles from "./page.module.css";
 
@@ -66,6 +67,9 @@ export default function Home() {
         <Button appName="web" className={styles.secondary}>
           Open alert
         </Button>
+        <Link href="/gyms" className={styles.primary}>
+          For Gym Owners →
+        </Link>
       </main>
       <footer className={styles.footer}>
         <a

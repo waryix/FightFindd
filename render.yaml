@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: fightfind-api
+    runtime: docker
+    plan: free
+    region: singapore
+    repo: https://github.com/waryix/FightFindd
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_DB_URL
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER_EMAIL
+        value: yashbijlani2004@gmail.com
+      - key: BREVO_SENDER_NAME
+        value: FightFind
+      - key: OTP_TTL_MINUTES
+        value: "10"
+      - key: OTP_RESEND_SECONDS
+        value: "60"
+      - key: OTP_MAX_ATTEMPTS
+        value: "5"
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: PAYMENTS_MOCK
+        value: "true"
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false

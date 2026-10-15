@@ -1,11 +1,29 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "tui",
+  "globalEnv": [
+    "PORT",
+    "SUPABASE_DB_URL",
+    "BREVO_API_KEY",
+    "BREVO_SENDER_EMAIL",
+    "BREVO_SENDER_NAME",
+    "OTP_TTL_MINUTES",
+    "OTP_RESEND_SECONDS",
+    "OTP_MAX_ATTEMPTS",
+    "OTP_DEV_BYPASS",
+    "DEV_OTP",
+    "RAZORPAY_KEY_ID",
+    "RAZORPAY_KEY_SECRET",
+    "PAYMENTS_MOCK",
+    "MSG91_AUTH_KEY",
+    "MSG91_TEMPLATE_ID",
+    "FIREBASE_SERVICE_ACCOUNT"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**"]
+      "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**", "dist/**"]
     },
     "lint": {
       "dependsOn": ["^lint"]

@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, ScrollView, TextInput } from "react-native";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import * as Location from "expo-location";
 import { getSession } from "../../src/store/session";

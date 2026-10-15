@@ -1,6 +1,5 @@
 import { View, Text, StyleSheet } from "react-native";
 import type { Fighter } from "@repo/types/fighter";
-import { compatibilityScore } from "@repo/utils/matching";
 
 const mockFighter: Fighter = {
   id: "1",
@@ -25,7 +24,7 @@ export default function HomeScreen() {
       <Text style={styles.title}>FightFind</Text>
       <Text style={styles.subtitle}>Find your sparring partner</Text>
       <Text style={styles.debug}>
-        Loaded fighter: {mockFighter.name} — {mockFighter.city}
+        Loaded fighter: {mockFighter.name} ï¿½ {mockFighter.city}
       </Text>
     </View>
   );

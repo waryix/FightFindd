@@ -11,8 +11,8 @@ const SKILL_LEVELS: SkillLevel[] = ["beginner", "intermediate", "advanced", "pro
 const WEIGHT_CLASSES: WeightClass[] = ["flyweight", "bantamweight", "featherweight", "lightweight", "welterweight", "middleweight", "heavyweight"];
 
 const WEIGHT_CLASS_RANGES: Record<WeightClass, string> = {
-  flyweight: "up to 52kg", bantamweight: "52–56kg", featherweight: "56–60kg",
-  lightweight: "60–65kg", welterweight: "65–70kg", middleweight: "70–75kg", heavyweight: "75kg+",
+  flyweight: "up to 52kg", bantamweight: "52ï¿½56kg", featherweight: "56ï¿½60kg",
+  lightweight: "60ï¿½65kg", welterweight: "65ï¿½70kg", middleweight: "70ï¿½75kg", heavyweight: "75kg+",
 };
 
 function suggestWeightClass(weightKg: number): WeightClass {
@@ -79,7 +79,10 @@ export default function ProfileSetupScreen() {
     try {
       const response = await fetch(`${API_URL}/api/fighters`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           name, city, state,
           phone: phone ?? `+91${Date.now()}`,
@@ -115,10 +118,10 @@ export default function ProfileSetupScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Complete your{"\n"}fighter profile</Text>
-      <Text style={styles.subtitle}>{phone} · {email}</Text>
+      <Text style={styles.subtitle}>{phone} ï¿½ {email}</Text>
 
       {locationStatus === "got" && <View style={styles.locationBanner}><Text style={styles.locationBannerText}>Location captured</Text></View>}
-      {locationStatus === "denied" && <View style={styles.locationBannerWarn}><Text style={styles.locationBannerWarnText}>Location denied — defaulting to Bengaluru</Text></View>}
+      {locationStatus === "denied" && <View style={styles.locationBannerWarn}><Text style={styles.locationBannerWarnText}>Location denied ï¿½ defaulting to Bengaluru</Text></View>}
       {error ? <Text style={styles.errorBox}>{error}</Text> : null}
 
       <Text style={styles.sectionTitle}>Basic Info</Text>

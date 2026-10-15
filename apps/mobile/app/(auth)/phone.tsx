@@ -24,7 +24,7 @@ export default function PhoneScreen() {
         pathname: "/(auth)/otp",
         params: { phone: `+91${phone}` },
       });
-    } catch (err) {
+    } catch {
       setError("Failed to send OTP. Try again.");
     } finally {
       setLoading(false);

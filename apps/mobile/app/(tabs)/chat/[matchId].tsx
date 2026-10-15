@@ -5,7 +5,7 @@ import { getSession, getToken } from "../../../src/store/session";
 import { API_URL } from "../../../src/services/config";
 
 export default function ChatScreen() {
-  const { matchId, otherName, otherFighterId } = useLocalSearchParams<{
+  const { matchId, otherName } = useLocalSearchParams<{
     matchId: string;
     otherName: string;
     otherFighterId: string;
@@ -16,7 +16,6 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false);
   const [input, setInput] = useState("");
   const [myId, setMyId] = useState<string | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const pollRef = useRef<any>(null);
 
@@ -35,9 +34,8 @@ export default function ChatScreen() {
   }, [myId]);
 
   const loadSession = async () => {
-    const [id, tok] = await Promise.all([getSession(), getToken()]);
+    const id = await getSession();
     setMyId(id);
-    setToken(tok);
   };
 
   const fetchMessages = async () => {

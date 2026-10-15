@@ -1,89 +1,123 @@
 import { Router, type IRouter } from "express";
-import { db, parseFighter } from "../config/db";
+import { desc, eq, or } from "drizzle-orm";
+import { db } from "../config/db";
+import { sparringRequests } from "../db/schema";
+import { getFightersByUserIds } from "../db/loaders";
+import { mapSparring } from "../db/mappers";
 import { sendPushNotification } from "../services/notifications";
 
 export const matchRouter: IRouter = Router();
 
-matchRouter.get("/", (req, res) => {
+matchRouter.get("/", async (req, res) => {
   const { fighter_id } = req.query;
 
-  let rows: any[];
-  if (fighter_id) {
-    rows = db.prepare(
-      "SELECT * FROM sparring_requests WHERE sender_id = ? OR receiver_id = ? ORDER BY created_at DESC"
-    ).all(fighter_id, fighter_id) as any[];
-  } else {
-    rows = db.prepare("SELECT * FROM sparring_requests ORDER BY created_at DESC").all() as any[];
+  try {
+    const rows = fighter_id
+      ? await db
+          .select()
+          .from(sparringRequests)
+          .where(
+            or(
+              eq(sparringRequests.senderId, String(fighter_id)),
+              eq(sparringRequests.receiverId, String(fighter_id))
+            )
+          )
+          .orderBy(desc(sparringRequests.createdAt))
+      : await db.select().from(sparringRequests).orderBy(desc(sparringRequests.createdAt));
+
+    if (rows.length === 0) { res.json({ matches: [], count: 0 }); return; }
+
+    const ids = [...new Set(rows.flatMap((m) => [m.senderId, m.receiverId]))];
+    const fighters = await getFightersByUserIds(ids);
+    const fighterMap: Record<string, any> = Object.fromEntries(fighters.map((f) => [f.id, f]));
+
+    const enriched = rows.map((m) => ({
+      ...mapSparring(m),
+      sender: fighterMap[m.senderId] ?? null,
+      receiver: fighterMap[m.receiverId] ?? null,
+    }));
+
+    res.json({ matches: enriched, count: enriched.length });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
-
-  if (rows.length === 0) { res.json({ matches: [], count: 0 }); return; }
-
-  const fighterIds = [...new Set(rows.flatMap(m => [m.sender_id, m.receiver_id]))];
-  const placeholders = fighterIds.map(() => "?").join(",");
-  const fighters = (db.prepare(
-    `SELECT id, name, city, skill_level, weight_class, discipline FROM fighters WHERE id IN (${placeholders})`
-  ).all(...fighterIds) as any[]).map(parseFighter);
-  const fighterMap: Record<string, any> = Object.fromEntries(fighters.map(f => [f.id, f]));
-
-  const enriched = rows.map(m => ({
-    ...m,
-    sender: fighterMap[m.sender_id] ?? null,
-    receiver: fighterMap[m.receiver_id] ?? null,
-  }));
-
-  res.json({ matches: enriched, count: enriched.length });
 });
 
 matchRouter.post("/", async (req, res) => {
   const body = req.body as any;
-  const id = crypto.randomUUID();
-
-  db.prepare(`
-    INSERT INTO sparring_requests (id, sender_id, receiver_id, discipline, proposed_date,
-      proposed_location, message, status)
-    VALUES (@id, @sender_id, @receiver_id, @discipline, @proposed_date,
-      @proposed_location, @message, @status)
-  `).run({
-    id,
-    sender_id: body.sender_id,
-    receiver_id: body.receiver_id,
-    discipline: body.discipline ?? null,
-    proposed_date: body.proposed_date ?? null,
-    proposed_location: body.proposed_location ?? null,
-    message: body.message ?? null,
-    status: body.status ?? "pending",
-  });
-
-  const match = db.prepare("SELECT * FROM sparring_requests WHERE id = ?").get(id);
 
   try {
-    const receiver = db.prepare("SELECT name, push_token FROM fighters WHERE id = ?").get(body.receiver_id) as any;
-    const sender = db.prepare("SELECT name FROM fighters WHERE id = ?").get(body.sender_id) as any;
-    if (receiver?.push_token && sender?.name) {
-      await sendPushNotification(receiver.push_token, "New Sparring Request", `${sender.name} wants to spar with you!`, { type: "sparring_request", matchId: id, senderId: body.sender_id });
-    }
-  } catch (err: any) { console.error("Notification error:", err.message); }
+    const match = (
+      await db
+        .insert(sparringRequests)
+        .values({
+          senderId: body.sender_id ?? body.senderId,
+          receiverId: body.receiver_id ?? body.receiverId,
+          discipline: body.discipline ?? "mixed",
+          proposedDate: body.proposed_date ?? body.proposedDate ?? new Date().toISOString(),
+          proposedLocation: body.proposed_location ?? body.proposedLocation ?? "",
+          message: body.message ?? null,
+          status: body.status ?? "pending",
+        })
+        .returning()
+    )[0]!;
 
-  res.status(201).json({ match });
+    try {
+      const fighters = await getFightersByUserIds([match.senderId, match.receiverId]);
+      const receiverFighter = fighters.find((f) => f.id === match.receiverId);
+      const senderFighter = fighters.find((f) => f.id === match.senderId);
+      if (receiverFighter?.push_token && senderFighter?.name) {
+        await sendPushNotification(
+          receiverFighter.push_token,
+          "New Sparring Request",
+          `${senderFighter.name} wants to spar with you!`,
+          { type: "sparring_request", matchId: match.id, senderId: match.senderId }
+        );
+      }
+    } catch (err: any) {
+      console.error("Notification error:", err.message);
+    }
+
+    res.status(201).json({ match: mapSparring(match) });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 matchRouter.patch("/:id/status", async (req, res) => {
   const { status } = req.body;
-  db.prepare("UPDATE sparring_requests SET status = ?, updated_at = datetime('now') WHERE id = ?").run(status, req.params.id);
-
-  const match = db.prepare("SELECT * FROM sparring_requests WHERE id = ?").get(req.params.id);
-  if (!match) { res.status(404).json({ error: "Match not found" }); return; }
 
   try {
-    if (status === "accepted" || status === "declined") {
-      const m = match as any;
-      const sender = db.prepare("SELECT push_token FROM fighters WHERE id = ?").get(m.sender_id) as any;
-      const receiver = db.prepare("SELECT name FROM fighters WHERE id = ?").get(m.receiver_id) as any;
-      if (sender?.push_token && receiver?.name) {
-        await sendPushNotification(sender.push_token, status === "accepted" ? "Request Accepted!" : "Request Declined", status === "accepted" ? `${receiver.name} accepted your sparring request!` : `${receiver.name} declined your sparring request.`, { type: "request_status", matchId: req.params.id, status });
-      }
-    }
-  } catch (err: any) { console.error("Notification error:", err.message); }
+    const updated = await db
+      .update(sparringRequests)
+      .set({ status, updatedAt: new Date().toISOString() })
+      .where(eq(sparringRequests.id, req.params.id))
+      .returning();
+    const match = updated[0];
+    if (!match) { res.status(404).json({ error: "Match not found" }); return; }
 
-  res.json({ match });
+    try {
+      if (status === "accepted" || status === "declined") {
+        const fighters = await getFightersByUserIds([match.senderId, match.receiverId]);
+        const senderFighter = fighters.find((f) => f.id === match.senderId);
+        const receiverFighter = fighters.find((f) => f.id === match.receiverId);
+        if (senderFighter?.push_token && receiverFighter?.name) {
+          await sendPushNotification(
+            senderFighter.push_token,
+            status === "accepted" ? "Request Accepted!" : "Request Declined",
+            status === "accepted"
+              ? `${receiverFighter.name} accepted your sparring request!`
+              : `${receiverFighter.name} declined your sparring request.`,
+            { type: "request_status", matchId: req.params.id, status }
+          );
+        }
+      }
+    } catch (err: any) {
+      console.error("Notification error:", err.message);
+    }
+
+    res.json({ match: mapSparring(match) });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
 });

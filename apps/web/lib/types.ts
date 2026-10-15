@@ -11,6 +11,7 @@ export interface Gym {
   id: string;
   name: string;
   owner_name: string | null;
+  owner_email?: string | null;
   phone: string | null;
   email: string | null;
   address: string | null;

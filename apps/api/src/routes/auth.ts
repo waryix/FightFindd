@@ -1,7 +1,11 @@
 import { Router, type IRouter, type Response } from "express";
 import { randomInt, randomUUID } from "node:crypto";
-import { db, parseFighter } from "../config/db";
+import { and, desc, eq, isNull } from "drizzle-orm";
+import { db } from "../config/db";
+import { fighterDisciplines, fighterProfiles, otpChallenges, sessions, users } from "../db/schema";
+import { getFighterById } from "../db/loaders";
 import { sendOtpEmail, isEmailConfigured } from "../services/email";
+import { sha256Hex } from "../lib/hash";
 
 export const authRouter: IRouter = Router();
 
@@ -9,6 +13,7 @@ const DEV_OTP = process.env.DEV_OTP ?? "123456";
 const OTP_TTL_MS = Number(process.env.OTP_TTL_MINUTES ?? 10) * 60_000;
 const OTP_RESEND_MS = Number(process.env.OTP_RESEND_SECONDS ?? 60) * 1000;
 const OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS ?? 5);
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 function isValidOtp(otp: string): boolean {
   return otp === DEV_OTP || /^\d{6}$/.test(otp);
@@ -18,20 +23,33 @@ function isDevBypassEnabled(): boolean {
   return process.env.OTP_DEV_BYPASS === "true" || !isEmailConfigured();
 }
 
-function issueSession(res: Response, email: string) {
-  const token = `local_${randomUUID()}`;
-  const fighter = db.prepare("SELECT * FROM fighters WHERE email = ?").get(email) as any;
+async function findOrCreateUserByEmail(email: string) {
+  const existing = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  if (existing[0]) return existing[0];
 
-  db.prepare(
-    "INSERT INTO sessions (token, email, fighter_id) VALUES (?, ?, ?)"
-  ).run(token, email, fighter?.id ?? null);
+  const created = await db
+    .insert(users)
+    .values({ email, name: email.split("@")[0] || "Fighter", isGuest: false })
+    .returning();
+  return created[0]!;
+}
+
+async function issueSession(res: Response, email: string) {
+  const user = await findOrCreateUserByEmail(email);
+  const token = `local_${randomUUID()}`;
+
+  await db.insert(sessions).values({
+    userId: user.id,
+    refreshTokenHash: sha256Hex(token),
+    expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
+  });
 
   res.json({
     success: true,
     message: "Email OTP verified",
     access_token: token,
     session: { access_token: token },
-    user: { id: fighter?.id ?? null, email },
+    user: { id: user.id, email },
   });
 }
 
@@ -59,113 +77,181 @@ authRouter.post("/otp/send-email", async (req, res) => {
     return;
   }
 
-  const now = Date.now();
-  const existing = db.prepare("SELECT * FROM email_otps WHERE email = ?").get(normalized) as any;
-  if (existing && now - existing.last_sent_at < OTP_RESEND_MS) {
-    const retry = Math.ceil((OTP_RESEND_MS - (now - existing.last_sent_at)) / 1000);
-    res.status(429).json({ error: `Please wait ${retry}s before requesting another code` });
-    return;
+  try {
+    const now = Date.now();
+    const existing = await db
+      .select()
+      .from(otpChallenges)
+      .where(
+        and(
+          eq(otpChallenges.identifier, normalized),
+          eq(otpChallenges.purpose, "login"),
+          isNull(otpChallenges.consumedAt)
+        )
+      )
+      .orderBy(desc(otpChallenges.createdAt))
+      .limit(1);
+
+    const latest = existing[0];
+    if (latest && now - new Date(latest.createdAt).getTime() < OTP_RESEND_MS) {
+      const retry = Math.ceil(
+        (OTP_RESEND_MS - (now - new Date(latest.createdAt).getTime())) / 1000
+      );
+      res.status(429).json({ error: `Please wait ${retry}s before requesting another code` });
+      return;
+    }
+
+    const code = String(randomInt(100000, 1000000));
+
+    await db.insert(otpChallenges).values({
+      channel: "email",
+      identifier: normalized,
+      purpose: "login",
+      codeHash: sha256Hex(code),
+      attempts: 0,
+      maxAttempts: OTP_MAX_ATTEMPTS,
+      expiresAt: new Date(now + OTP_TTL_MS).toISOString(),
+    });
+
+    const result = await sendOtpEmail(normalized, code);
+
+    if (!result.sent && !result.dev) {
+      await db
+        .delete(otpChallenges)
+        .where(
+          and(eq(otpChallenges.identifier, normalized), eq(otpChallenges.codeHash, sha256Hex(code)))
+        );
+      res.status(502).json({ error: "Could not send the verification email. Please try again." });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: `OTP sent to ${normalized}`,
+      ...(result.dev ? { devOtp: code } : {}),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? "Could not send OTP" });
   }
-
-  const code = String(randomInt(100000, 1000000));
-  const expiresAt = now + OTP_TTL_MS;
-
-  db.prepare(`
-    INSERT INTO email_otps (email, code, expires_at, attempts, last_sent_at)
-    VALUES (?, ?, ?, 0, ?)
-    ON CONFLICT(email) DO UPDATE SET
-      code = excluded.code,
-      expires_at = excluded.expires_at,
-      attempts = 0,
-      last_sent_at = excluded.last_sent_at
-  `).run(normalized, code, expiresAt, now);
-
-  const result = await sendOtpEmail(normalized, code);
-
-  if (!result.sent && !result.dev) {
-    db.prepare("DELETE FROM email_otps WHERE email = ?").run(normalized);
-    res.status(502).json({ error: "Could not send the verification email. Please try again." });
-    return;
-  }
-
-  res.json({
-    success: true,
-    message: `OTP sent to ${normalized}`,
-    ...(result.dev ? { devOtp: code } : {}),
-  });
 });
 
-authRouter.post("/otp/verify-email", (req, res) => {
+authRouter.post("/otp/verify-email", async (req, res) => {
   const { email, otp } = req.body;
   if (!email || !otp) { res.status(400).json({ error: "Email and OTP are required" }); return; }
 
   const normalized = email.trim().toLowerCase();
 
-  if (isDevBypassEnabled() && String(otp).trim() === DEV_OTP) {
-    db.prepare("DELETE FROM email_otps WHERE email = ?").run(normalized);
-    issueSession(res, normalized);
-    return;
-  }
+  try {
+    if (isDevBypassEnabled() && String(otp).trim() === DEV_OTP) {
+      await db
+        .delete(otpChallenges)
+        .where(
+          and(eq(otpChallenges.identifier, normalized), eq(otpChallenges.purpose, "login"))
+        );
+      await issueSession(res, normalized);
+      return;
+    }
 
-  const row = db.prepare("SELECT * FROM email_otps WHERE email = ?").get(normalized) as any;
-  if (!row) {
-    res.status(400).json({ error: "No verification code found. Please request a new one." });
-    return;
-  }
+    const rows = await db
+      .select()
+      .from(otpChallenges)
+      .where(
+        and(
+          eq(otpChallenges.identifier, normalized),
+          eq(otpChallenges.purpose, "login"),
+          isNull(otpChallenges.consumedAt)
+        )
+      )
+      .orderBy(desc(otpChallenges.createdAt))
+      .limit(1);
 
-  if (Date.now() > row.expires_at) {
-    db.prepare("DELETE FROM email_otps WHERE email = ?").run(normalized);
-    res.status(400).json({ error: "This code has expired. Please request a new one." });
-    return;
-  }
+    const row = rows[0];
+    if (!row) {
+      res.status(400).json({ error: "No verification code found. Please request a new one." });
+      return;
+    }
 
-  if (row.attempts >= OTP_MAX_ATTEMPTS) {
-    res.status(400).json({ error: "Too many incorrect attempts. Please request a new code." });
-    return;
-  }
+    if (Date.now() > new Date(row.expiresAt).getTime()) {
+      res.status(400).json({ error: "This code has expired. Please request a new one." });
+      return;
+    }
 
-  if (row.code !== String(otp).trim()) {
-    db.prepare("UPDATE email_otps SET attempts = attempts + 1 WHERE email = ?").run(normalized);
-    res.status(400).json({ error: "Invalid code. Please check and try again." });
-    return;
-  }
+    if (row.attempts >= row.maxAttempts) {
+      res.status(400).json({ error: "Too many incorrect attempts. Please request a new code." });
+      return;
+    }
 
-  db.prepare("DELETE FROM email_otps WHERE email = ?").run(normalized);
-  issueSession(res, normalized);
+    if (row.codeHash !== sha256Hex(String(otp).trim())) {
+      await db
+        .update(otpChallenges)
+        .set({ attempts: row.attempts + 1 })
+        .where(eq(otpChallenges.id, row.id));
+      res.status(400).json({ error: "Invalid code. Please check and try again." });
+      return;
+    }
+
+    await db
+      .update(otpChallenges)
+      .set({ consumedAt: new Date().toISOString() })
+      .where(eq(otpChallenges.id, row.id));
+
+    await issueSession(res, normalized);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? "Verification failed" });
+  }
 });
 
-authRouter.post("/guest", (_req, res) => {
+authRouter.post("/guest", async (_req, res) => {
   const GUEST_EMAIL = "guest@fightfind.dev";
-  let fighter = db.prepare("SELECT * FROM fighters WHERE email = ?").get(GUEST_EMAIL) as any;
+  try {
+    let user = (
+      await db.select().from(users).where(eq(users.email, GUEST_EMAIL)).limit(1)
+    )[0];
 
-  if (!fighter) {
-    const id = randomUUID();
-    db.prepare(`
-      INSERT INTO fighters (id, name, phone, email, city, state, discipline, skill_level,
-        weight_class, age_years, years_experience, total_amateur_fights, total_pro_fights, bio)
-      VALUES (@id, @name, @phone, @email, @city, @state, @discipline, @skill_level,
-        @weight_class, @age_years, @years_experience, @total_amateur_fights, @total_pro_fights, @bio)
-    `).run({
-      id,
-      name: "Guest Fighter",
-      phone: "+910000000000",
-      email: GUEST_EMAIL,
-      city: "Bengaluru",
-      state: "Karnataka",
-      discipline: JSON.stringify(["boxing", "mma"]),
-      skill_level: "intermediate",
-      weight_class: "lightweight",
-      age_years: 25,
-      years_experience: 3,
-      total_amateur_fights: 5,
-      total_pro_fights: 0,
-      bio: "Just browsing FightFind as a guest.",
+    if (!user) {
+      const created = await db
+        .insert(users)
+        .values({ email: GUEST_EMAIL, name: "Guest Fighter", phone: "+910000000000", isGuest: true })
+        .returning();
+      user = created[0]!;
+
+      const profile = (
+        await db
+          .insert(fighterProfiles)
+          .values({
+            userId: user.id,
+            name: "Guest Fighter",
+            city: "Bengaluru",
+            state: "Karnataka",
+            latitude: 12.9716,
+            longitude: 77.5946,
+            ageYears: 25,
+            yearsExperience: 3,
+            totalAmateurFights: 5,
+            totalProFights: 0,
+            weightClass: "lightweight",
+            skillLevel: "intermediate",
+            bio: "Just browsing FightFind as a guest.",
+          })
+          .returning()
+      )[0]!;
+
+      await db.insert(fighterDisciplines).values([
+        { fighterId: profile.id, discipline: "boxing" },
+        { fighterId: profile.id, discipline: "mma" },
+      ]);
+    }
+
+    const token = `local_guest_${randomUUID()}`;
+    await db.insert(sessions).values({
+      userId: user.id,
+      refreshTokenHash: sha256Hex(token),
+      expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
     });
-    fighter = db.prepare("SELECT * FROM fighters WHERE id = ?").get(id);
+
+    const fighter = await getFighterById(user.id);
+    res.json({ access_token: token, fighter });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? "Guest login failed" });
   }
-
-  const token = `local_guest_${randomUUID()}`;
-  db.prepare("INSERT INTO sessions (token, email, fighter_id) VALUES (?, ?, ?)").run(token, GUEST_EMAIL, fighter.id);
-
-  res.json({ access_token: token, fighter: parseFighter(fighter) });
 });
