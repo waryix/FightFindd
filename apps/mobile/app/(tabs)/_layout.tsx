@@ -19,7 +19,7 @@ export default function TabsLayout() {
           transform: [{ translateY: tabBarTranslateY }],
         },
         tabBarActiveTintColor: "#e63946",
-        tabBarInactiveTintColor: "#555555",
+        tabBarInactiveTintColor: "#ffffff",
         tabBarShowLabel: true,
         tabBarLabelPosition: "below-icon",
         tabBarLabelStyle: { fontSize: 14, fontWeight: "700" },
