@@ -20,9 +20,13 @@ export function DateTimeField({ mode, value, onChange }: DateTimeFieldProps) {
       : `${pad(value.getHours())}:${pad(value.getMinutes())}`
     : "";
 
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+
   const input = createElement("input" as any, {
     type: mode === "date" ? "date" : "time",
     value: valueStr,
+    min: mode === "date" ? todayStr : undefined,
     onChange: (e: any) => {
       const v: string = e.target.value;
       if (!v) return;

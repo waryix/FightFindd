@@ -34,11 +34,18 @@ export default function RequestSparringScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const isValid = discipline && dateValue && timeValue && location;
+  const selectedDateTime = (() => {
+    if (!dateValue || !timeValue) return null;
+    const d = new Date(dateValue);
+    d.setHours(timeValue.getHours(), timeValue.getMinutes(), 0, 0);
+    return d;
+  })();
+  const isPast = selectedDateTime ? selectedDateTime.getTime() <= Date.now() : false;
+  const isValid = Boolean(discipline && dateValue && timeValue && location && !isPast);
 
   const handleSubmit = async () => {
     if (!isValid) {
-      setError("Please fill in all required fields");
+      setError(isPast ? "Please choose a date and time in the future" : "Please fill in all required fields");
       return;
     }
 
@@ -52,9 +59,7 @@ export default function RequestSparringScreen() {
         return;
       }
 
-      const when = new Date(dateValue as Date);
-      when.setHours((timeValue as Date).getHours(), (timeValue as Date).getMinutes(), 0, 0);
-      const proposedDate = when.toISOString();
+      const proposedDate = (selectedDateTime as Date).toISOString();
       const token = await getToken();
 
       const response = await fetch(`${API_URL}/api/matches`, {
@@ -125,6 +130,7 @@ export default function RequestSparringScreen() {
 
       <Text style={styles.label}>Time *</Text>
       <DateTimeField mode="time" value={timeValue} onChange={setTimeValue} placeholder="Select a time" />
+      {isPast ? <Text style={styles.pastHint}>Please choose a date and time in the future</Text> : null}
 
       <Text style={styles.label}>Location *</Text>
       <View style={styles.locationOptions}>
@@ -199,4 +205,5 @@ const styles = StyleSheet.create({
   cancelBtn: { paddingVertical: 14, alignItems: "center", marginTop: 8 },
   cancelBtnText: { color: "#555", fontSize: 15 },
   errorBox: { backgroundColor: "#2a0a0a", borderRadius: 8, padding: 12, color: "#e63946", fontSize: 13, marginBottom: 8, borderWidth: 1, borderColor: "#e63946" },
+  pastHint: { color: "#e63946", fontSize: 12, marginTop: 6 },
 });

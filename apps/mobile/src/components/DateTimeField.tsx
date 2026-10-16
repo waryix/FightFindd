@@ -10,6 +10,12 @@ interface DateTimeFieldProps {
   placeholder?: string;
 }
 
+function startOfToday(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 export function DateTimeField({ mode, value, onChange, placeholder }: DateTimeFieldProps) {
   const [show, setShow] = useState(false);
 
@@ -30,6 +36,7 @@ export function DateTimeField({ mode, value, onChange, placeholder }: DateTimeFi
         <DateTimePicker
           value={value ?? new Date()}
           mode={mode}
+          minimumDate={mode === "date" ? startOfToday() : undefined}
           display={Platform.OS === "ios" ? "spinner" : "default"}
           onChange={(_event: unknown, date?: Date) => {
             setShow(false);

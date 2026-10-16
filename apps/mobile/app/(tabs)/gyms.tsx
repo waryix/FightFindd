@@ -20,6 +20,7 @@ export default function GymsScreen() {
   const [trialOnly, setTrialOnly] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
 
   const activeFilterCount = (filter ? 1 : 0) + (trialOnly ? 1 : 0);
 
@@ -116,36 +117,44 @@ export default function GymsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View>
+        <View style={styles.headerText}>
           <Text style={styles.headerTitle}>Nearby Gyms</Text>
           <Text style={styles.headerSub}>Boxing, MMA and combat sports gyms</Text>
         </View>
-        <TouchableOpacity
-          style={[styles.filterBtn, activeFilterCount > 0 && styles.filterBtnActive]}
-          onPress={() => setShowFilters(v => !v)}
-        >
-          <Ionicons name="funnel-outline" size={14} color={activeFilterCount > 0 ? "#e63946" : "#666666"} />
-          <Text style={[styles.filterBtnText, activeFilterCount > 0 && styles.filterBtnTextActive]}>
-            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={[styles.iconBtn, showSearch && styles.iconBtnActive]}
+            onPress={() => setShowSearch(v => !v)}
+          >
+            <Ionicons name="search" size={18} color={showSearch ? "#e63946" : "#888888"} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.iconBtn, activeFilterCount > 0 && styles.iconBtnActive]}
+            onPress={() => setShowFilters(v => !v)}
+          >
+            <Ionicons name="funnel-outline" size={18} color={activeFilterCount > 0 ? "#e63946" : "#888888"} />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <View style={styles.searchRow}>
-        <Ionicons name="search" size={16} color="#555555" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search gyms by name or city..."
-          placeholderTextColor="#444"
-          value={search}
-          onChangeText={setSearch}
-        />
-        {search.length > 0 && (
-          <TouchableOpacity style={styles.clearSearch} onPress={() => setSearch("")}>
-            <Ionicons name="close-circle" size={16} color="#555555" />
-          </TouchableOpacity>
-        )}
-      </View>
+      {showSearch ? (
+        <View style={styles.searchRow}>
+          <Ionicons name="search" size={16} color="#555555" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search gyms by name or city..."
+            placeholderTextColor="#444"
+            value={search}
+            onChangeText={setSearch}
+            autoFocus
+          />
+          {search.length > 0 && (
+            <TouchableOpacity style={styles.clearSearch} onPress={() => setSearch("")}>
+              <Ionicons name="close-circle" size={16} color="#555555" />
+            </TouchableOpacity>
+          )}
+        </View>
+      ) : null}
 
       {showFilters ? (
         <View style={styles.filterPanel}>
@@ -205,13 +214,13 @@ export default function GymsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0a0a0a" },
-  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
+  headerText: { flex: 1 },
   headerTitle: { fontSize: 28, fontWeight: "800", color: "#fff" },
   headerSub: { fontSize: 14, color: "#666", marginTop: 2 },
-  filterBtn: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#1a1a1a", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: "#2a2a2a", marginTop: 4 },
-  filterBtnActive: { backgroundColor: "#e6394622", borderColor: "#e63946" },
-  filterBtnText: { color: "#666666", fontSize: 13, fontWeight: "600" },
-  filterBtnTextActive: { color: "#e63946" },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 10 },
+  iconBtn: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "#1a1a1a", borderWidth: 1, borderColor: "#2a2a2a" },
+  iconBtnActive: { backgroundColor: "#e6394622", borderColor: "#e63946" },
   searchRow: { flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 16, marginBottom: 10, backgroundColor: "#1a1a1a", borderRadius: 12, borderWidth: 1, borderColor: "#2a2a2a", paddingHorizontal: 14 },
   searchInput: { flex: 1, paddingVertical: 12, fontSize: 15, color: "#ffffff" },
   clearSearch: { padding: 6 },
