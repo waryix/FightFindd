@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { API_URL } from "../../src/services/config";
+import { useHideTabBarOnScroll, useResetTabBarOnFocus } from "../../src/store/tabBar";
 
 const DISCIPLINE_FILTERS = ["all", "boxing", "mma", "muay_thai", "kickboxing", "bjj", "wrestling"];
 
@@ -21,6 +22,8 @@ export default function GymsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const onScroll = useHideTabBarOnScroll();
+  useResetTabBarOnFocus();
 
   const activeFilterCount = (filter ? 1 : 0) + (trialOnly ? 1 : 0);
 
@@ -117,10 +120,9 @@ export default function GymsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.headerText}>
-          <Text style={styles.headerTitle} numberOfLines={1}>Nearby Gyms</Text>
-          <Text style={styles.headerSub} numberOfLines={1}>Boxing, MMA and combat sports gyms</Text>
-        </View>
+          <View style={styles.headerText}>
+            <Text style={styles.headerSub} numberOfLines={1}>Boxing, MMA and combat sports gyms</Text>
+          </View>
         <View style={styles.headerActions}>
           {showSearch ? (
             <View style={styles.inlineSearch}>
@@ -204,6 +206,8 @@ export default function GymsScreen() {
           renderItem={renderGym}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e63946" colors={["#e63946"]} />}
         />
       )}

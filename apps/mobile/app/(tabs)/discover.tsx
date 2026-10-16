@@ -6,6 +6,7 @@ import { getSession } from "../../src/store/session";
 import { API_URL } from "../../src/services/config";
 import Avatar from "../../src/components/Avatar";
 import { Ionicons } from "@expo/vector-icons";
+import { useHideTabBarOnScroll, useResetTabBarOnFocus } from "../../src/store/tabBar";
 import type { Discipline, SkillLevel, WeightClass } from "@repo/types/fighter";
 
 const DISCIPLINES: Discipline[] = ["boxing", "mma", "kickboxing", "muay_thai", "bjj", "wrestling"];
@@ -52,6 +53,8 @@ export default function DiscoverScreen() {
   const [locationError, setLocationError] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const onScroll = useHideTabBarOnScroll();
+  useResetTabBarOnFocus();
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [search, setSearch] = useState("");
@@ -205,7 +208,6 @@ export default function DiscoverScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerText}>
-          <Text style={styles.headerTitle} numberOfLines={1}>Discover</Text>
           <Text style={styles.headerSub} numberOfLines={1}>
             {appliedFilters.useLocation && location ? `Within ${appliedFilters.radiusKm}km of you` : "Find sparring partners"}
           </Text>
@@ -286,6 +288,8 @@ export default function DiscoverScreen() {
           renderItem={renderFighter}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e63946" colors={["#e63946"]} />}
         />
       )}

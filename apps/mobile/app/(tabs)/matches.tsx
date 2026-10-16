@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import { getSession, getToken } from "../../src/store/session";
 import { API_URL } from "../../src/services/config";
+import { useHideTabBarOnScroll, useResetTabBarOnFocus } from "../../src/store/tabBar";
 
 type MatchStatus = "pending" | "accepted" | "declined" | "completed" | "cancelled";
 
@@ -36,6 +37,8 @@ export default function MatchesScreen() {
   const [tab, setTab] = useState<"received" | "sent">("received");
   const [myId, setMyId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const onScroll = useHideTabBarOnScroll();
+  useResetTabBarOnFocus();
 
   useEffect(() => { loadMyId(); }, []);
   useEffect(() => { if (myId) fetchMatches(); }, [myId]);
@@ -179,7 +182,6 @@ export default function MatchesScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Matches</Text>
         <Text style={styles.headerSub}>Your sparring requests</Text>
       </View>
 
@@ -212,6 +214,8 @@ export default function MatchesScreen() {
           renderItem={renderMatch}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e63946" colors={["#e63946"]} />}
         />
       )}
