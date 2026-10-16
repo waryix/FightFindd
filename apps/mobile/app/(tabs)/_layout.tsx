@@ -1,5 +1,4 @@
 import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabsLayout() {
@@ -11,9 +10,9 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: "#0a0a0a",
           borderTopColor: "#1a1a1a",
-          height: 56 + insets.bottom,
-          paddingTop: 8,
-          paddingBottom: insets.bottom + 8,
+          height: 54 + insets.bottom,
+          paddingTop: 12,
+          paddingBottom: insets.bottom + 10,
         },
         tabBarActiveTintColor: "#e63946",
         tabBarInactiveTintColor: "#555555",
@@ -21,9 +20,7 @@ export default function TabsLayout() {
         tabBarLabelPosition: "below-icon",
         tabBarLabelStyle: { fontSize: 13, fontWeight: "600" },
         tabBarItemStyle: { flex: 1 },
-        tabBarIcon: ({ color }) => (
-          <Ionicons name="chevron-down" color={color} size={14} />
-        ),
+        tabBarIcon: () => null,
         headerStyle: { backgroundColor: "#0a0a0a" },
         headerTintColor: "#ffffff",
       }}
