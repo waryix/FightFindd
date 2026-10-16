@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, ScrollView, TextInput, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, ScrollView, TextInput, RefreshControl, Pressable } from "react-native";
 import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import * as Location from "expo-location";
@@ -247,6 +247,7 @@ export default function DiscoverScreen() {
         </View>
       </View>
 
+      <View style={styles.body}>
       <View style={styles.disciplineRow}>
         <FlatList
           horizontal
@@ -293,6 +294,11 @@ export default function DiscoverScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e63946" colors={["#e63946"]} />}
         />
       )}
+
+        {showSearch ? (
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowSearch(false)} />
+        ) : null}
+      </View>
 
       <Modal visible={showFilters} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
@@ -375,6 +381,7 @@ export default function DiscoverScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0a0a0a" },
+  body: { flex: 1 },
   header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
   headerText: { flex: 1, minWidth: 0 },
   headerTitle: { fontSize: 28, fontWeight: "800", color: "#fff" },

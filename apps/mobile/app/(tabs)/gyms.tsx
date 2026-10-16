@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, RefreshControl, Pressable } from "react-native";
 import { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { API_URL } from "../../src/services/config";
@@ -157,6 +157,7 @@ export default function GymsScreen() {
         </View>
       </View>
 
+      <View style={styles.body}>
       {showFilters ? (
         <View style={styles.filterPanel}>
           <View style={styles.filterRow}>
@@ -211,12 +212,18 @@ export default function GymsScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e63946" colors={["#e63946"]} />}
         />
       )}
+
+        {showSearch ? (
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowSearch(false)} />
+        ) : null}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0a0a0a" },
+  body: { flex: 1 },
   header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
   headerText: { flex: 1, minWidth: 0 },
   headerTitle: { fontSize: 28, fontWeight: "800", color: "#fff" },
