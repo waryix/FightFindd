@@ -23,8 +23,8 @@ export default function RootLayout() {
     const style = doc.createElement("style");
     style.id = "ff-web-focus-reset";
     style.textContent = `
-      input:focus, textarea:focus, select:focus { outline: none !important; }
-      [role="tab"]:focus, [role="tab"]:focus-visible, a:focus, button:focus { outline: none !important; }
+      *, *::before, *::after { -webkit-tap-highlight-color: transparent; }
+      *:focus, *:focus-visible, *:active { outline: none !important; box-shadow: none !important; }
     `;
     doc.head.appendChild(style);
     return () => {

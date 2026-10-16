@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { API_URL } from "../../src/services/config";
 import { useHideTabBarOnScroll, useResetTabBarOnFocus } from "../../src/store/tabBar";
 
-const DISCIPLINE_FILTERS = ["all", "boxing", "mma", "muay_thai", "kickboxing", "bjj", "wrestling"];
+const DISCIPLINE_FILTERS = ["boxing", "mma", "muay_thai", "kickboxing", "bjj", "wrestling"];
 
 const DISCIPLINE_COLOR: Record<string, string> = {
   boxing: "#3b82f6", mma: "#e63946", muay_thai: "#f59e0b",
@@ -15,7 +15,7 @@ export default function GymsScreen() {
   const [gyms, setGyms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [filter, setFilter] = useState<string | null>(null);
+  const [disciplines, setDisciplines] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [searchDebounce, setSearchDebounce] = useState("");
   const [trialOnly, setTrialOnly] = useState(false);
@@ -25,14 +25,16 @@ export default function GymsScreen() {
   const onScroll = useHideTabBarOnScroll();
   useResetTabBarOnFocus();
 
-  const activeFilterCount = (filter ? 1 : 0) + (trialOnly ? 1 : 0);
+  const activeFilterCount = (disciplines.length > 0 ? 1 : 0) + (trialOnly ? 1 : 0);
+  const toggleDiscipline = (d: string) =>
+    setDisciplines((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
 
   useEffect(() => {
     const timer = setTimeout(() => setSearchDebounce(search), 500);
     return () => clearTimeout(timer);
   }, [search]);
 
-  useEffect(() => { fetchGyms(); }, [filter, searchDebounce, trialOnly]);
+  useEffect(() => { fetchGyms(); }, [disciplines, searchDebounce, trialOnly]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -46,13 +48,19 @@ export default function GymsScreen() {
     try {
       const params = new URLSearchParams();
       if (searchDebounce) params.append("search", searchDebounce);
-      if (filter) params.append("discipline", filter);
+      if (disciplines.length === 1) params.append("discipline", disciplines[0]!);
       if (trialOnly) params.append("has_trial", "true");
 
       const response = await fetch(`${API_URL}/api/gyms?${params.toString()}`);
       const data = await response.json();
       if (!response.ok) { setError(data.error); return; }
-      setGyms(data.gyms);
+      let list = data.gyms ?? [];
+      if (disciplines.length > 1) {
+        list = list.filter((gym: any) =>
+          (gym.disciplines ?? []).some((d: string) => disciplines.includes(d))
+        );
+      }
+      setGyms(list);
     } catch { setError("Could not connect to server"); }
     finally { if (!silent) setLoading(false); }
   };
@@ -169,11 +177,11 @@ export default function GymsScreen() {
               contentContainerStyle={styles.filterList}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={[styles.filterChip, (item === "all" ? filter === null : filter === item) && styles.filterChipActive]}
-                  onPress={() => setFilter(item === "all" ? null : item)}
+                  style={[styles.filterChip, disciplines.includes(item) && styles.filterChipActive]}
+                  onPress={() => toggleDiscipline(item)}
                 >
-                  <Text style={[styles.filterChipText, (item === "all" ? filter === null : filter === item) && styles.filterChipTextActive]}>
-                    {item === "all" ? "All" : item.replace("_", " ")}
+                  <Text style={[styles.filterChipText, disciplines.includes(item) && styles.filterChipTextActive]}>
+                    {item.replace("_", " ")}
                   </Text>
                 </TouchableOpacity>
               )}

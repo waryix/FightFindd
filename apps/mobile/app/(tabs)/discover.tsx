@@ -21,7 +21,7 @@ const SKILL_COLOR: Record<SkillLevel, string> = {
 };
 
 interface Filters {
-  discipline: Discipline | null;
+  disciplines: Discipline[];
   skillLevel: SkillLevel | null;
   weightClass: WeightClass | null;
   city: string;
@@ -38,7 +38,7 @@ interface Filters {
 }
 
 const DEFAULT_FILTERS: Filters = {
-  discipline: null, skillLevel: null, weightClass: null, city: "",
+  disciplines: [], skillLevel: null, weightClass: null, city: "",
   minWeight: "", maxWeight: "", minHeight: "", maxHeight: "",
   minExperience: "", maxExperience: "", minFights: "", maxFights: "",
   radiusKm: "25", useLocation: false,
@@ -96,7 +96,7 @@ export default function DiscoverScreen() {
       const params = new URLSearchParams();
       const f = appliedFilters;
       if (searchDebounce) params.append("search", searchDebounce);
-      if (f.discipline) params.append("discipline", f.discipline);
+      if (f.disciplines.length === 1) params.append("discipline", f.disciplines[0]!);
       if (f.skillLevel) params.append("skill_level", f.skillLevel);
       if (f.weightClass) params.append("weight_class", f.weightClass);
       if (f.city) params.append("city", f.city);
@@ -117,7 +117,13 @@ export default function DiscoverScreen() {
       const response = await fetch(`${API_URL}/api/fighters?${params.toString()}`);
       const data = await response.json();
       if (!response.ok) { setError(data.error); return; }
-      setFighters(data.fighters);
+      let list = data.fighters ?? [];
+      if (f.disciplines.length > 1) {
+        list = list.filter((fighter: any) =>
+          (fighter.discipline ?? []).some((d: string) => f.disciplines.includes(d as Discipline))
+        );
+      }
+      setFighters(list);
     } catch { setError("Could not connect to server"); }
     finally { if (!silent) setLoading(false); }
   };
@@ -125,6 +131,7 @@ export default function DiscoverScreen() {
   const activeFilterCount = Object.entries(appliedFilters).filter(([key, val]) => {
     if (key === "radiusKm") return false;
     if (typeof val === "boolean") return val;
+    if (Array.isArray(val)) return val.length > 0;
     return val !== null && val !== "";
   }).length;
 
@@ -248,30 +255,6 @@ export default function DiscoverScreen() {
       </View>
 
       <View style={styles.body}>
-      <View style={styles.disciplineRow}>
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={["all", ...DISCIPLINES]}
-          keyExtractor={item => item}
-          contentContainerStyle={styles.filterList}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.filterChip, (item === "all" ? appliedFilters.discipline === null : appliedFilters.discipline === item) && styles.filterChipActive]}
-              onPress={() => {
-                const val = item === "all" ? null : item as Discipline;
-                setFilters(prev => ({ ...prev, discipline: val }));
-                setAppliedFilters(prev => ({ ...prev, discipline: val }));
-              }}
-            >
-              <Text style={[styles.filterChipText, (item === "all" ? appliedFilters.discipline === null : appliedFilters.discipline === item) && styles.filterChipTextActive]}>
-                {item === "all" ? "All" : item.replace("_", " ")}
-              </Text>
-            </TouchableOpacity>
-          )}
-        />
-      </View>
-
       {loading ? (
         <View style={styles.center}><ActivityIndicator color="#e63946" size="large" /><Text style={styles.loadingText}>Finding fighters...</Text></View>
       ) : error ? (
@@ -368,6 +351,18 @@ export default function DiscoverScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
+              <Text style={styles.modalSection}>Discipline</Text>
+              <View style={styles.chips}>
+                {DISCIPLINES.map(d => (
+                  <TouchableOpacity
+                    key={d}
+                    style={[styles.chip, filters.disciplines.includes(d) && styles.chipActive]}
+                    onPress={() => update("disciplines", filters.disciplines.includes(d) ? filters.disciplines.filter(x => x !== d) : [...filters.disciplines, d])}
+                  >
+                    <Text style={[styles.chipText, filters.disciplines.includes(d) && styles.chipTextActive]}>{d.replace("_", " ")}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </ScrollView>
             <TouchableOpacity style={styles.applyBtn} onPress={handleApply}>
               <Text style={styles.applyBtnText}>Apply Filters</Text>
@@ -391,12 +386,6 @@ const styles = StyleSheet.create({
   iconBtnActive: { backgroundColor: "#e6394622" },
   inlineSearch: { width: 140, flexShrink: 1, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#1a1a1a", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 6 },
   inlineSearchInput: { flex: 1, minWidth: 0, paddingVertical: 0, fontSize: 13, color: "#ffffff" },
-  disciplineRow: { marginBottom: 8 },
-  filterList: { paddingHorizontal: 16, gap: 8 },
-  filterChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: "#1a1a1a", borderWidth: 1, borderColor: "#2a2a2a" },
-  filterChipActive: { backgroundColor: "#e63946", borderColor: "#e63946" },
-  filterChipText: { color: "#666", fontSize: 13, fontWeight: "500", textTransform: "capitalize" },
-  filterChipTextActive: { color: "#fff" },
   list: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 24, gap: 12 },
   card: { backgroundColor: "#141414", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "#2a2a2a" },
   cardTop: { flexDirection: "row", gap: 14, marginBottom: 10 },
