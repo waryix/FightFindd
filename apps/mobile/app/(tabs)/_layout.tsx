@@ -5,7 +5,7 @@ import { TAB_BAR_HEIGHT, tabBarTranslateY } from "../../src/store/tabBar";
 
 function tabButton(text: string) {
   function TabButton(props: any) {
-    const selected = Boolean(props.accessibilityState?.selected);
+    const selected = Boolean(props["aria-selected"]);
     return (
       <Pressable
         onPress={props.onPress}
@@ -15,7 +15,14 @@ function tabButton(text: string) {
           flex: 1,
           alignItems: "center",
           justifyContent: "center",
-          paddingVertical: 6,
+          marginHorizontal: 3,
+          marginBottom: selected ? -1 : 0,
+          borderTopLeftRadius: 10,
+          borderTopRightRadius: 10,
+          borderWidth: selected ? 1 : 0,
+          borderBottomWidth: 0,
+          borderColor: "#2a2a2a",
+          backgroundColor: selected ? "#0a0a0a" : "transparent",
         }}
       >
         <Text
@@ -38,9 +45,10 @@ export default function TabsLayout() {
       screenOptions={{
         tabBarPosition: "top",
         tabBarStyle: {
-          backgroundColor: "#0a0a0a",
+          backgroundColor: "#050505",
           borderTopColor: "transparent",
           borderBottomColor: "#1a1a1a",
+          borderBottomWidth: 1,
           height: TAB_BAR_HEIGHT + insets.top,
           paddingTop: insets.top,
           paddingBottom: 0,
