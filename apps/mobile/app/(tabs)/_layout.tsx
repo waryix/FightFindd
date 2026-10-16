@@ -21,8 +21,8 @@ export default function TabsLayout() {
         tabBarLabelPosition: "below-icon",
         tabBarLabelStyle: { fontSize: 13, fontWeight: "600" },
         tabBarItemStyle: { flex: 1 },
-        tabBarIcon: ({ color, size }) => (
-          <Ionicons name="chevron-down" color={color} size={size} />
+        tabBarIcon: ({ color }) => (
+          <Ionicons name="chevron-down" color={color} size={14} />
         ),
         headerStyle: { backgroundColor: "#0a0a0a" },
         headerTintColor: "#ffffff",

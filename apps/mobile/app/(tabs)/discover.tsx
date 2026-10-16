@@ -204,47 +204,47 @@ export default function DiscoverScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.headerText}>
-          <Text style={styles.headerTitle}>Discover</Text>
-          <Text style={styles.headerSub}>
-            {appliedFilters.useLocation && location ? `Within ${appliedFilters.radiusKm}km of you` : "Find sparring partners"}
-          </Text>
-        </View>
+        {showSearch ? (
+          <View style={styles.inlineSearch}>
+            <Ionicons name="search" size={14} color="#555555" />
+            <TextInput
+              style={styles.inlineSearchInput}
+              placeholder="Search"
+              placeholderTextColor="#444"
+              value={search}
+              onChangeText={setSearch}
+              returnKeyType="search"
+              autoFocus
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch("")}>
+                <Ionicons name="close-circle" size={14} color="#555555" />
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          <View style={styles.headerText}>
+            <Text style={styles.headerTitle}>Discover</Text>
+            <Text style={styles.headerSub}>
+              {appliedFilters.useLocation && location ? `Within ${appliedFilters.radiusKm}km of you` : "Find sparring partners"}
+            </Text>
+          </View>
+        )}
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={[styles.iconBtn, showSearch && styles.iconBtnActive]}
             onPress={() => setShowSearch(v => !v)}
           >
-            <Ionicons name="search" size={18} color={showSearch ? "#e63946" : "#888888"} />
+            <Ionicons name={showSearch ? "close" : "search"} size={16} color={showSearch ? "#e63946" : "#888888"} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.iconBtn, activeFilterCount > 0 && styles.iconBtnActive]}
             onPress={() => setShowFilters(true)}
           >
-            <Ionicons name="funnel-outline" size={18} color={activeFilterCount > 0 ? "#e63946" : "#888888"} />
+            <Ionicons name="funnel-outline" size={16} color={activeFilterCount > 0 ? "#e63946" : "#888888"} />
           </TouchableOpacity>
         </View>
       </View>
-
-      {showSearch ? (
-        <View style={styles.searchRow}>
-          <Ionicons name="search" size={16} color="#555555" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by name or city..."
-            placeholderTextColor="#444"
-            value={search}
-            onChangeText={setSearch}
-            returnKeyType="search"
-            autoFocus
-          />
-          {search.length > 0 && (
-            <TouchableOpacity style={styles.clearSearch} onPress={() => setSearch("")}>
-              <Ionicons name="close-circle" size={16} color="#555555" />
-            </TouchableOpacity>
-          )}
-        </View>
-      ) : null}
 
       <View style={styles.disciplineRow}>
         <FlatList
@@ -379,9 +379,8 @@ const styles = StyleSheet.create({
   headerActions: { flexDirection: "row", alignItems: "center", gap: 10 },
   iconBtn: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "#1a1a1a", borderWidth: 1, borderColor: "#2a2a2a" },
   iconBtnActive: { backgroundColor: "#e6394622", borderColor: "#e63946" },
-  searchRow: { flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 16, marginBottom: 10, backgroundColor: "#1a1a1a", borderRadius: 12, borderWidth: 1, borderColor: "#2a2a2a", paddingHorizontal: 14 },
-  searchInput: { flex: 1, paddingVertical: 12, fontSize: 15, color: "#ffffff" },
-  clearSearch: { padding: 6 },
+  inlineSearch: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#1a1a1a", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: "#2a2a2a" },
+  inlineSearchInput: { flex: 1, minWidth: 0, paddingVertical: 0, fontSize: 14, color: "#ffffff" },
   disciplineRow: { marginBottom: 8 },
   filterList: { paddingHorizontal: 16, gap: 8 },
   filterChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: "#1a1a1a", borderWidth: 1, borderColor: "#2a2a2a" },
