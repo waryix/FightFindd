@@ -4,6 +4,7 @@ import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { API_URL } from "../../src/services/config";
 import { useHideTabBarOnScroll, useResetTabBarOnFocus } from "../../src/store/tabBar";
+import { useWebPullToRefresh } from "../../src/store/pullToRefresh";
 
 const DISCIPLINE_FILTERS = ["boxing", "mma", "muay_thai", "kickboxing", "bjj", "wrestling"];
 
@@ -42,6 +43,8 @@ export default function GymsScreen() {
     await fetchGyms(true);
     setRefreshing(false);
   };
+
+  const pull = useWebPullToRefresh(onRefresh);
 
   const fetchGyms = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -223,10 +226,11 @@ export default function GymsScreen() {
         ListEmptyComponent={emptyState}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        onScroll={onScroll}
+        onScroll={(e) => { pull.trackScroll(e.nativeEvent.contentOffset.y); onScroll(e); }}
         scrollEventThrottle={16}
         onScrollBeginDrag={() => { if (showSearch) setShowSearch(false); }}
         keyboardShouldPersistTaps="handled"
+        {...(pull.handlers as any)}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e63946" colors={["#e63946"]} />}
       />
     </View>

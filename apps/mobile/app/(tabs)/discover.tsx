@@ -7,6 +7,7 @@ import { API_URL } from "../../src/services/config";
 import Avatar from "../../src/components/Avatar";
 import { Ionicons } from "@expo/vector-icons";
 import { useHideTabBarOnScroll, useResetTabBarOnFocus } from "../../src/store/tabBar";
+import { useWebPullToRefresh } from "../../src/store/pullToRefresh";
 import type { Discipline, SkillLevel, WeightClass } from "@repo/types/fighter";
 
 const DISCIPLINES: Discipline[] = ["boxing", "mma", "kickboxing", "muay_thai", "bjj", "wrestling"];
@@ -88,6 +89,8 @@ export default function DiscoverScreen() {
     await fetchFighters(true);
     setRefreshing(false);
   };
+
+  const pull = useWebPullToRefresh(onRefresh);
 
   const fetchFighters = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -286,10 +289,11 @@ export default function DiscoverScreen() {
         ListEmptyComponent={emptyState}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        onScroll={onScroll}
+        onScroll={(e) => { pull.trackScroll(e.nativeEvent.contentOffset.y); onScroll(e); }}
         scrollEventThrottle={16}
         onScrollBeginDrag={() => { if (showSearch) setShowSearch(false); }}
         keyboardShouldPersistTaps="handled"
+        {...(pull.handlers as any)}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e63946" colors={["#e63946"]} />}
       />
 

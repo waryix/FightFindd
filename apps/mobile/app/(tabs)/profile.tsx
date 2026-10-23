@@ -5,6 +5,7 @@ import { getSession, clearSession } from "../../src/store/session";
 import { API_URL } from "../../src/services/config";
 import { upgradeToPro, PRO_PRICE } from "../../src/services/payments";
 import Avatar from "../../src/components/Avatar";
+import { useWebPullToRefresh } from "../../src/store/pullToRefresh";
 
 export default function ProfileScreen() {
   const [fighter, setFighter] = useState<any>(null);
@@ -28,7 +29,7 @@ export default function ProfileScreen() {
       const data = await response.json();
       if (response.ok) setFighter(data.fighter);
     } catch (err) { console.error(err); }
-    finally { if (!silent) setLoading(false); }
+    finally { setLoading(false); }
   };
 
   const onRefresh = async () => {
@@ -36,6 +37,8 @@ export default function ProfileScreen() {
     await loadProfile(true);
     setRefreshing(false);
   };
+
+  const pull = useWebPullToRefresh(onRefresh);
 
   const handleLogout = async () => {
     await clearSession();
@@ -75,6 +78,9 @@ export default function ProfileScreen() {
       style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      onScroll={(e) => pull.trackScroll(e.nativeEvent.contentOffset.y)}
+      scrollEventThrottle={16}
+      {...(pull.handlers as any)}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e63946" colors={["#e63946"]} />}
     >
       <View style={styles.header}>

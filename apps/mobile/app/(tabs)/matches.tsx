@@ -4,6 +4,7 @@ import { router, useFocusEffect } from "expo-router";
 import { getSession, getToken } from "../../src/store/session";
 import { API_URL } from "../../src/services/config";
 import { useHideTabBarOnScroll, useResetTabBarOnFocus } from "../../src/store/tabBar";
+import { useWebPullToRefresh } from "../../src/store/pullToRefresh";
 
 type MatchStatus = "pending" | "accepted" | "declined" | "completed" | "cancelled";
 
@@ -50,6 +51,8 @@ export default function MatchesScreen() {
     await fetchMatches(true);
     setRefreshing(false);
   };
+
+  const pull = useWebPullToRefresh(onRefresh);
 
   const fetchMatches = async (silent = false) => {
     if (!myId) return;
@@ -224,8 +227,9 @@ export default function MatchesScreen() {
           renderItem={renderMatch}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          onScroll={onScroll}
+          onScroll={(e) => { pull.trackScroll(e.nativeEvent.contentOffset.y); onScroll(e); }}
           scrollEventThrottle={16}
+          {...(pull.handlers as any)}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e63946" colors={["#e63946"]} />}
         />
       )}
