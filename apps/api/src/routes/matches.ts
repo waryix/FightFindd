@@ -5,6 +5,7 @@ import { sparringRequests } from "../db/schema";
 import { getFightersByUserIds } from "../db/loaders";
 import { mapSparring } from "../db/mappers";
 import { sendPushNotification } from "../services/notifications";
+import { requireNotGuest } from "../middleware/auth";
 
 export const matchRouter: IRouter = Router();
 
@@ -43,7 +44,7 @@ matchRouter.get("/", async (req, res) => {
   }
 });
 
-matchRouter.post("/", async (req, res) => {
+matchRouter.post("/", requireNotGuest, async (req, res) => {
   const body = req.body as any;
 
   try {
@@ -84,14 +85,15 @@ matchRouter.post("/", async (req, res) => {
   }
 });
 
-matchRouter.patch("/:id/status", async (req, res) => {
+matchRouter.patch("/:id/status", requireNotGuest, async (req, res) => {
   const { status } = req.body;
+  const matchId = String(req.params.id);
 
   try {
     const updated = await db
       .update(sparringRequests)
       .set({ status, updatedAt: new Date().toISOString() })
-      .where(eq(sparringRequests.id, req.params.id))
+      .where(eq(sparringRequests.id, matchId))
       .returning();
     const match = updated[0];
     if (!match) { res.status(404).json({ error: "Match not found" }); return; }
@@ -108,7 +110,7 @@ matchRouter.patch("/:id/status", async (req, res) => {
             status === "accepted"
               ? `${receiverFighter.name} accepted your sparring request!`
               : `${receiverFighter.name} declined your sparring request.`,
-            { type: "request_status", matchId: req.params.id, status }
+            { type: "request_status", matchId, status }
           );
         }
       }

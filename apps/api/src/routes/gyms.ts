@@ -3,7 +3,7 @@ import { and, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { db } from "../config/db";
 import { gymDisciplines, gymOwners, gymProfiles, payments } from "../db/schema";
 import { getGymById, getGymRowById, hydrateGyms, findGymsForOwner } from "../db/loaders";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requireNotGuest } from "../middleware/auth";
 
 export const gymRouter: IRouter = Router();
 
@@ -99,7 +99,7 @@ gymRouter.get("/:id", async (req, res) => {
   }
 });
 
-gymRouter.post("/", requireAuth, requireGymOwner, async (req, res) => {
+gymRouter.post("/", requireAuth, requireNotGuest, requireGymOwner, async (req, res) => {
   const body = req.body as any;
   const ownerUserId = (req as any).user.id as string;
 
@@ -186,7 +186,7 @@ gymRouter.post("/", requireAuth, requireGymOwner, async (req, res) => {
   }
 });
 
-gymRouter.patch("/:id", requireAuth, requireGymOwner, async (req, res) => {
+gymRouter.patch("/:id", requireAuth, requireNotGuest, requireGymOwner, async (req, res) => {
   const body = req.body as Record<string, any>;
   const ownerUserId = (req as any).user.id as string;
 

@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
 import { router } from "expo-router";
 import { useState, useEffect } from "react";
-import { getSession } from "../src/store/session";
+import { getSession, getToken } from "../src/store/session";
 import { API_URL } from "../src/services/config";
 import type { Discipline, SkillLevel, WeightClass } from "@repo/types/fighter";
 
@@ -108,10 +108,14 @@ export default function EditProfileScreen() {
 
     try {
       const fighterId = await getSession();
+      const token = await getToken();
 
       const response = await fetch(`${API_URL}/api/fighters/${fighterId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           name,
           city,

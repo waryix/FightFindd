@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from "react-native";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { saveSession, getSession } from "../src/store/session";
+import { saveSession, getSession, saveGuestFlag } from "../src/store/session";
 import { API_URL } from "../src/services/config";
 
 export default function LandingScreen() {
@@ -26,6 +26,7 @@ export default function LandingScreen() {
       const data = await response.json();
       if (!response.ok) return;
       await saveSession(data.fighter.id, data.access_token);
+      await saveGuestFlag(true);
       router.replace("/(tabs)/discover");
     } catch (err) {
       console.error(err);

@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, RefreshControl } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { getSession, clearSession } from "../../src/store/session";
+import { getSession, clearSession, isGuestSession } from "../../src/store/session";
 import { API_URL } from "../../src/services/config";
 import { upgradeToPro, PRO_PRICE } from "../../src/services/payments";
 import Avatar from "../../src/components/Avatar";
@@ -13,6 +13,7 @@ export default function ProfileScreen() {
   const [upgrading, setUpgrading] = useState(false);
   const [proMsg, setProMsg] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -25,6 +26,7 @@ export default function ProfileScreen() {
     try {
       const fighterId = await getSession();
       if (!fighterId) { router.replace("/"); return; }
+      setIsGuest(await isGuestSession());
       const response = await fetch(`${API_URL}/api/fighters/${fighterId}`);
       const data = await response.json();
       if (response.ok) setFighter(data.fighter);
@@ -139,27 +141,41 @@ export default function ProfileScreen() {
         </View>
       ) : null}
 
-      <View style={styles.proCard}>
-        <View style={styles.proHeader}>
-          <Text style={styles.proTitle}>FightFind Pro</Text>
-          {fighter.is_pro ? <View style={styles.proBadge}><Text style={styles.proBadgeText}>PRO</Text></View> : null}
+      {isGuest ? (
+        <View style={styles.guestCard}>
+          <Text style={styles.guestTitle}>You&apos;re browsing as a guest</Text>
+          <Text style={styles.guestText}>
+            Guests can browse fighters and gyms. Create an account to edit your profile, request sparring and more.
+          </Text>
+          <TouchableOpacity style={styles.proBtn} onPress={handleLogout}>
+            <Text style={styles.proBtnText}>Create an account</Text>
+          </TouchableOpacity>
         </View>
-        {fighter.is_pro ? (
-          <Text style={styles.proText}>You have Pro. Priority visibility and a Pro badge on your profile.</Text>
-        ) : (
-          <>
-            <Text style={styles.proText}>Stand out with a Pro badge and priority in search results.</Text>
-            {proMsg ? <Text style={styles.proMsg}>{proMsg}</Text> : null}
-            <TouchableOpacity style={styles.proBtn} onPress={handleUpgrade} disabled={upgrading}>
-              <Text style={styles.proBtnText}>{upgrading ? "Processing…" : `Upgrade to Pro · ₹${PRO_PRICE}`}</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
+      ) : (
+        <>
+          <View style={styles.proCard}>
+            <View style={styles.proHeader}>
+              <Text style={styles.proTitle}>FightFind Pro</Text>
+              {fighter.is_pro ? <View style={styles.proBadge}><Text style={styles.proBadgeText}>PRO</Text></View> : null}
+            </View>
+            {fighter.is_pro ? (
+              <Text style={styles.proText}>You have Pro. Priority visibility and a Pro badge on your profile.</Text>
+            ) : (
+              <>
+                <Text style={styles.proText}>Stand out with a Pro badge and priority in search results.</Text>
+                {proMsg ? <Text style={styles.proMsg}>{proMsg}</Text> : null}
+                <TouchableOpacity style={styles.proBtn} onPress={handleUpgrade} disabled={upgrading}>
+                  <Text style={styles.proBtnText}>{upgrading ? "Processing…" : `Upgrade to Pro · ₹${PRO_PRICE}`}</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
 
-      <TouchableOpacity style={styles.editBtn} onPress={() => router.push("/edit-profile")}>
-        <Text style={styles.editBtnText}>Edit Profile</Text>
-      </TouchableOpacity>
+          <TouchableOpacity style={styles.editBtn} onPress={() => router.push("/edit-profile")}>
+            <Text style={styles.editBtnText}>Edit Profile</Text>
+          </TouchableOpacity>
+        </>
+      )}
 
       <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
         <Text style={styles.logoutText}>Log Out</Text>
@@ -192,6 +208,9 @@ const styles = StyleSheet.create({
   chipText: { color: "#aaa", fontSize: 13, textTransform: "capitalize" },
   bioText: { fontSize: 14, color: "#888", lineHeight: 20 },
   proCard: { backgroundColor: "#141414", borderRadius: 16, padding: 18, borderWidth: 1, borderColor: "#e6394655", marginBottom: 16, gap: 10 },
+  guestCard: { backgroundColor: "#141414", borderRadius: 16, padding: 18, borderWidth: 1, borderColor: "#2a2a2a", marginBottom: 16, gap: 10 },
+  guestTitle: { fontSize: 16, fontWeight: "800", color: "#fff" },
+  guestText: { fontSize: 13, color: "#888", lineHeight: 19 },
   proHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
   proTitle: { fontSize: 16, fontWeight: "800", color: "#fff" },
   proBadge: { backgroundColor: "#e6394622", borderWidth: 1, borderColor: "#e63946", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },

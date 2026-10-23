@@ -5,6 +5,7 @@ import { messages, sparringRequests } from "../db/schema";
 import { getFightersByUserIds } from "../db/loaders";
 import { mapMessage } from "../db/mappers";
 import { sendPushNotification } from "../services/notifications";
+import { requireNotGuest } from "../middleware/auth";
 
 export const messageRouter: IRouter = Router();
 
@@ -35,8 +36,8 @@ messageRouter.get("/:matchId", async (req, res) => {
   }
 });
 
-messageRouter.post("/:matchId", async (req, res) => {
-  const { matchId } = req.params;
+messageRouter.post("/:matchId", requireNotGuest, async (req, res) => {
+  const matchId = String(req.params.matchId);
   const { sender_id, content } = req.body;
 
   if (!content?.trim()) { res.status(400).json({ error: "Message cannot be empty" }); return; }

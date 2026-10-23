@@ -4,6 +4,28 @@ import { db } from "../config/db";
 import { sessions, users } from "../db/schema";
 import { sha256Hex } from "../lib/hash";
 
+export async function requireNotGuest(req: Request, res: Response, next: NextFunction) {
+  try {
+    const id = (req as any).user?.id;
+    if (!id) {
+      res.status(401).json({ error: "Missing account." });
+      return;
+    }
+    const rows = await db
+      .select({ isGuest: users.isGuest })
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1);
+    if (!rows[0] || rows[0].isGuest) {
+      res.status(403).json({ error: "Guest accounts can only browse FightFind. Create an account to continue." });
+      return;
+    }
+    next();
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? "Authorization failed" });
+  }
+}
+
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   try {
     const authHeader = req.headers.authorization;

@@ -52,6 +52,7 @@ export function mapFighter({
     gym_id: profile?.gymId ?? null,
     is_verified: profile?.verificationStatus === "verified" ? 1 : 0,
     is_pro: isPro ? 1 : 0,
+    is_guest: user.isGuest ? 1 : 0,
     created_at: fmtTs(profile?.createdAt ?? user.createdAt),
     updated_at: fmtTs(profile?.updatedAt ?? null),
   };

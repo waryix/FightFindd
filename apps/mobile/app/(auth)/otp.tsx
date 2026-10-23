@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { saveSession } from "../../src/store/session";
+import { saveSession, saveGuestFlag } from "../../src/store/session";
 import { supabase } from "../../src/services/supabase";
 import { OtpInput } from "../../src/components/OtpInput";
 
@@ -35,6 +35,7 @@ export default function OtpScreen() {
       if (verifyError) { setError(verifyError.message); return; }
 
       const token = data.session?.access_token;
+      await saveGuestFlag(false);
 
       if (mode === "login") {
         await saveSession(fighterId, token);

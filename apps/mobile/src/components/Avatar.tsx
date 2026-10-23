@@ -2,7 +2,7 @@ import { View, Text, Image, StyleSheet, TouchableOpacity, ActivityIndicator } fr
 import { useEffect, useState } from "react";
 import { pickAndUploadAvatar } from "../services/avatar";
 import { API_URL } from "../services/config";
-import { getSession } from "../store/session";
+import { getSession, getToken } from "../store/session";
 
 interface AvatarProps {
   name: string;
@@ -41,9 +41,13 @@ export default function Avatar({ name, avatarUrl, size = 52, editable = false, o
       if (!url) return;
 
       // Save avatar URL to fighter profile
+      const token = await getToken();
       await fetch(`${API_URL}/api/fighters/${fighterId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ avatar_url: url }),
       });
 

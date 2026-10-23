@@ -8,7 +8,7 @@ import {
   getFighterByPhone,
   hydrateFighters,
 } from "../db/loaders";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requireNotGuest } from "../middleware/auth";
 
 export const fighterRouter: IRouter = Router();
 
@@ -49,7 +49,7 @@ fighterRouter.get("/", async (req, res) => {
   } = req.query;
 
   try {
-    const conditions: any[] = [];
+    const conditions: any[] = [eq(users.isGuest, false)];
 
     if (search) {
       conditions.push(
@@ -162,7 +162,7 @@ fighterRouter.get("/:id", async (req, res) => {
   }
 });
 
-fighterRouter.post("/", requireAuth, async (req, res) => {
+fighterRouter.post("/", requireAuth, requireNotGuest, async (req, res) => {
   const body = req.body as any;
   const userId = (req as any).user.id as string;
 
@@ -224,9 +224,9 @@ fighterRouter.post("/", requireAuth, async (req, res) => {
   }
 });
 
-fighterRouter.patch("/:id", async (req, res) => {
+fighterRouter.patch("/:id", requireAuth, requireNotGuest, async (req, res) => {
   const body = req.body as Record<string, any>;
-  const userId = req.params.id;
+  const userId = String(req.params.id);
 
   try {
     const userUpdate: Record<string, any> = {};

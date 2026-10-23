@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState, useEffect } from "react";
-import { getSession } from "../../src/store/session";
+import { getSession, isGuestSession } from "../../src/store/session";
 import { API_URL } from "../../src/services/config";
 import Avatar from "../../src/components/Avatar";
 
@@ -17,6 +17,11 @@ export default function FighterDetailScreen() {
   const [fighter, setFighter] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [myId, setMyId] = useState<string | null>(null);
+  const [isGuest, setIsGuest] = useState(false);
+
+  useEffect(() => {
+    isGuestSession().then(setIsGuest);
+  }, []);
 
   useEffect(() => {
     if (!fighterId) return;
@@ -92,7 +97,7 @@ export default function FighterDetailScreen() {
         <Text style={styles.infoValue}>{fighter.city}, {fighter.state}</Text>
       </View>
 
-      {!isOwnProfile && (
+      {!isOwnProfile && !isGuest && (
         <TouchableOpacity
           style={styles.requestBtn}
           onPress={() => router.push({

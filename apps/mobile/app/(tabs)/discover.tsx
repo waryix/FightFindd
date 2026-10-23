@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { router, useFocusEffect } from "expo-router";
 import * as Location from "expo-location";
-import { getSession } from "../../src/store/session";
+import { getSession, isGuestSession } from "../../src/store/session";
 import { API_URL } from "../../src/services/config";
 import Avatar from "../../src/components/Avatar";
 import { Ionicons } from "@expo/vector-icons";
@@ -61,6 +61,7 @@ export default function DiscoverScreen() {
   const [search, setSearch] = useState("");
   const [searchDebounce, setSearchDebounce] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => { loadMyId(); }, []);
   useEffect(() => { if (myId !== null) fetchFighters(); }, [myId, appliedFilters, searchDebounce]);
@@ -71,7 +72,11 @@ export default function DiscoverScreen() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const loadMyId = async () => { const id = await getSession(); setMyId(id); };
+  const loadMyId = async () => {
+    const id = await getSession();
+    setMyId(id);
+    setIsGuest(await isGuestSession());
+  };
 
   const requestLocation = async () => {
     try {
@@ -207,18 +212,22 @@ export default function DiscoverScreen() {
             <Text style={styles.viewProfile}>View full profile</Text>
             <Ionicons name="arrow-forward" size={14} color="#e63946" />
           </View>
-          <TouchableOpacity
-            style={styles.requestBtn}
-            onPress={(e) => {
-              e.stopPropagation();
-              router.push({
-                pathname: "/request/[receiverId]",
-                params: { receiverId: item.id, receiverName: item.name, receiverSkill: item.skill_level, receiverDisciplines: JSON.stringify(item.discipline) },
-              });
-            }}
-          >
-            <Text style={styles.requestBtnText}>Request Sparring</Text>
-          </TouchableOpacity>
+          {isGuest ? (
+            <Text style={styles.guestHint}>Sign up to request</Text>
+          ) : (
+            <TouchableOpacity
+              style={styles.requestBtn}
+              onPress={(e) => {
+                e.stopPropagation();
+                router.push({
+                  pathname: "/request/[receiverId]",
+                  params: { receiverId: item.id, receiverName: item.name, receiverSkill: item.skill_level, receiverDisciplines: JSON.stringify(item.discipline) },
+                });
+              }}
+            >
+              <Text style={styles.requestBtnText}>Request Sparring</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -425,6 +434,7 @@ const styles = StyleSheet.create({
   viewProfile: { color: "#e63946", fontSize: 13, fontWeight: "600" },
   requestBtn: { backgroundColor: "#e6394622", borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1, borderColor: "#e6394655" },
   requestBtnText: { color: "#e63946", fontSize: 13, fontWeight: "600" },
+  guestHint: { color: "#555555", fontSize: 12, fontWeight: "600" },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: 32 },
   loadingText: { color: "#666", fontSize: 14 },
   errorText: { color: "#e63946", fontSize: 14 },

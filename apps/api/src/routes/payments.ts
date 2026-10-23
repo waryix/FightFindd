@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "../config/db";
 import { gymProfiles, payments, subscriptions, users } from "../db/schema";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requireNotGuest } from "../middleware/auth";
 import { createOrder, verifySignature, PAYMENTS_MOCK, RAZORPAY_KEY_ID } from "../services/payments";
 
 export const paymentRouter: IRouter = Router();
@@ -38,7 +38,7 @@ paymentRouter.get("/config", (_req, res) => {
   res.json({ mock: PAYMENTS_MOCK, keyId: RAZORPAY_KEY_ID || "rzp_test_dummy" });
 });
 
-paymentRouter.post("/gym/order", requireAuth, async (req, res) => {
+paymentRouter.post("/gym/order", requireAuth, requireNotGuest, async (req, res) => {
   try {
     const amount = PRICES.gym_registration;
     const order = await createOrder(amount, "gym_registration");
@@ -49,7 +49,7 @@ paymentRouter.post("/gym/order", requireAuth, async (req, res) => {
   }
 });
 
-paymentRouter.post("/gym/monthly/order", requireAuth, async (req, res) => {
+paymentRouter.post("/gym/monthly/order", requireAuth, requireNotGuest, async (req, res) => {
   const { gymId } = req.body;
   if (!gymId) { res.status(400).json({ error: "gymId is required" }); return; }
 
@@ -82,9 +82,13 @@ paymentRouter.post("/pro/order", async (req, res) => {
 
   try {
     const fighter = (
-      await db.select({ id: users.id }).from(users).where(eq(users.id, fighterId)).limit(1)
+      await db.select({ id: users.id, isGuest: users.isGuest }).from(users).where(eq(users.id, fighterId)).limit(1)
     )[0];
     if (!fighter) { res.status(404).json({ error: "Fighter not found" }); return; }
+    if (fighter.isGuest) {
+      res.status(403).json({ error: "Guest accounts can only browse FightFind. Create an account to continue." });
+      return;
+    }
 
     const amount = PRICES.fighter_pro;
     const order = await createOrder(amount, "fighter_pro", { fighterId });
