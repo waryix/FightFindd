@@ -90,7 +90,7 @@ export default function DiscoverScreen() {
     setRefreshing(false);
   };
 
-  const pull = useWebPullToRefresh(onRefresh);
+  const pullRef = useWebPullToRefresh(onRefresh);
 
   const fetchFighters = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -282,6 +282,7 @@ export default function DiscoverScreen() {
   return (
     <View style={styles.container}>
       <FlatList
+        ref={pullRef}
         data={loading || error ? [] : fighters}
         keyExtractor={item => item.id}
         renderItem={renderFighter}
@@ -289,11 +290,10 @@ export default function DiscoverScreen() {
         ListEmptyComponent={emptyState}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        onScroll={(e) => { pull.trackScroll(e.nativeEvent.contentOffset.y); onScroll(e); }}
+        onScroll={onScroll}
         scrollEventThrottle={16}
         onScrollBeginDrag={() => { if (showSearch) setShowSearch(false); }}
         keyboardShouldPersistTaps="handled"
-        {...(pull.handlers as any)}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e63946" colors={["#e63946"]} />}
       />
 

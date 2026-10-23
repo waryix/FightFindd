@@ -14,6 +14,7 @@ function tabButton(text: string) {
         testID={props.testID}
         style={{
           flex: 1,
+          minWidth: 0,
           alignItems: "center",
           justifyContent: "center",
           marginHorizontal: 3,
@@ -46,7 +47,7 @@ function profileTabButton() {
         onPress={props.onPress}
         onLongPress={props.onLongPress}
         testID={props.testID}
-        style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+        style={{ flex: 1, minWidth: 0, alignItems: "center", justifyContent: "center" }}
       >
         <Ionicons
           name={selected ? "person-circle" : "person-circle-outline"}
@@ -94,7 +95,6 @@ export default function TabsLayout() {
         options={{
           title: "Profile",
           tabBarButton: profileTabButton(),
-          tabBarItemStyle: { flex: 0, width: 60 },
         }}
       />
       <Tabs.Screen name="request/[receiverId]" options={{ title: "Request Sparring", href: null, headerShown: true }} />

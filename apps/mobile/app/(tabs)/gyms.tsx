@@ -44,7 +44,7 @@ export default function GymsScreen() {
     setRefreshing(false);
   };
 
-  const pull = useWebPullToRefresh(onRefresh);
+  const pullRef = useWebPullToRefresh(onRefresh);
 
   const fetchGyms = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -219,6 +219,7 @@ export default function GymsScreen() {
   return (
     <View style={styles.container}>
       <FlatList
+        ref={pullRef}
         data={loading || error ? [] : gyms}
         keyExtractor={item => item.id}
         renderItem={renderGym}
@@ -226,11 +227,10 @@ export default function GymsScreen() {
         ListEmptyComponent={emptyState}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        onScroll={(e) => { pull.trackScroll(e.nativeEvent.contentOffset.y); onScroll(e); }}
+        onScroll={onScroll}
         scrollEventThrottle={16}
         onScrollBeginDrag={() => { if (showSearch) setShowSearch(false); }}
         keyboardShouldPersistTaps="handled"
-        {...(pull.handlers as any)}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e63946" colors={["#e63946"]} />}
       />
     </View>

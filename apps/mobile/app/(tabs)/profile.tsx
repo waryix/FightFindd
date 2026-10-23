@@ -38,7 +38,7 @@ export default function ProfileScreen() {
     setRefreshing(false);
   };
 
-  const pull = useWebPullToRefresh(onRefresh);
+  const pullRef = useWebPullToRefresh(onRefresh);
 
   const handleLogout = async () => {
     await clearSession();
@@ -75,12 +75,10 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView
+      ref={pullRef}
       style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
-      onScroll={(e) => pull.trackScroll(e.nativeEvent.contentOffset.y)}
-      scrollEventThrottle={16}
-      {...(pull.handlers as any)}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e63946" colors={["#e63946"]} />}
     >
       <View style={styles.header}>

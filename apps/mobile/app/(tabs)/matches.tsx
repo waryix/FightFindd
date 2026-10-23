@@ -52,7 +52,7 @@ export default function MatchesScreen() {
     setRefreshing(false);
   };
 
-  const pull = useWebPullToRefresh(onRefresh);
+  const pullRef = useWebPullToRefresh(onRefresh);
 
   const fetchMatches = async (silent = false) => {
     if (!myId) return;
@@ -222,14 +222,14 @@ export default function MatchesScreen() {
         </View>
       ) : (
         <FlatList
+          ref={pullRef}
           data={displayed}
           keyExtractor={item => item.id}
           renderItem={renderMatch}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          onScroll={(e) => { pull.trackScroll(e.nativeEvent.contentOffset.y); onScroll(e); }}
+          onScroll={onScroll}
           scrollEventThrottle={16}
-          {...(pull.handlers as any)}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e63946" colors={["#e63946"]} />}
         />
       )}

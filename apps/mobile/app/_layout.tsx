@@ -24,8 +24,17 @@ export default function RootLayout() {
     const style = doc.createElement("style");
     style.id = "ff-web-focus-reset";
     style.textContent = `
-      *, *::before, *::after { -webkit-tap-highlight-color: transparent; }
+      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
       *:focus, *:focus-visible, *:active { outline: none !important; box-shadow: none !important; }
+      html, body, #root {
+        background-color: #0a0a0a !important;
+        width: 100%;
+        max-width: 100%;
+        min-height: 100%;
+        margin: 0;
+        overflow-x: hidden;
+      }
+      #root { overflow-x: hidden; }
     `;
     doc.head.appendChild(style);
     return () => {
