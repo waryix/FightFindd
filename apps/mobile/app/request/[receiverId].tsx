@@ -1,9 +1,9 @@
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { getSession, getToken } from "../../../src/store/session";
-import { API_URL } from "../../../src/services/config";
-import { DateTimeField } from "../../../src/components/DateTimeField";
+import { getSession, getToken } from "../../src/store/session";
+import { API_URL } from "../../src/services/config";
+import { DateTimeField } from "../../src/components/DateTimeField";
 import type { Discipline } from "@repo/types/fighter";
 
 const LOCATIONS = [

@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Linking } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { API_URL } from "../../../src/services/config";
+import { API_URL } from "../../src/services/config";
 
 const DISCIPLINE_COLOR: Record<string, string> = {
   boxing: "#3b82f6",

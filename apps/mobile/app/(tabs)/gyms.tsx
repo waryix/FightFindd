@@ -80,7 +80,7 @@ export default function GymsScreen() {
   );
 
   const openGym = (gymId: string) => {
-    router.push({ pathname: "/(tabs)/gym/[gymId]", params: { gymId } });
+    router.push({ pathname: "/gym/[gymId]", params: { gymId } });
   };
 
   const renderGym = ({ item }: { item: any }) => (

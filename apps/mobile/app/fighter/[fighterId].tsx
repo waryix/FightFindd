@@ -1,9 +1,9 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState, useEffect } from "react";
-import { getSession } from "../../../src/store/session";
-import { API_URL } from "../../../src/services/config";
-import Avatar from "../../../src/components/Avatar";
+import { getSession } from "../../src/store/session";
+import { API_URL } from "../../src/services/config";
+import Avatar from "../../src/components/Avatar";
 
 const SKILL_COLOR: Record<string, string> = {
   beginner: "#22c55e",
@@ -96,7 +96,7 @@ export default function FighterDetailScreen() {
         <TouchableOpacity
           style={styles.requestBtn}
           onPress={() => router.push({
-            pathname: "/(tabs)/request/[receiverId]",
+            pathname: "/request/[receiverId]",
             params: { receiverId: fighter.id, receiverName: fighter.name, receiverSkill: fighter.skill_level, receiverDisciplines: JSON.stringify(fighter.discipline) },
           })}
         >

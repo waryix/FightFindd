@@ -104,6 +104,11 @@ export default function RootLayout() {
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="gym-owner" options={{ headerShown: false }} />
+        <Stack.Screen name="fighter/[fighterId]" options={{ headerShown: false }} />
+        <Stack.Screen name="gym/[gymId]" options={{ headerShown: false }} />
+        <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
+        <Stack.Screen name="request/[receiverId]" options={{ title: "Request Sparring" }} />
+        <Stack.Screen name="chat/[matchId]" options={{ title: "Chat" }} />
       </Stack>
     </>
   );

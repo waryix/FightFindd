@@ -97,11 +97,6 @@ export default function TabsLayout() {
           tabBarButton: profileTabButton(),
         }}
       />
-      <Tabs.Screen name="request/[receiverId]" options={{ title: "Request Sparring", href: null, headerShown: true }} />
-      <Tabs.Screen name="edit-profile" options={{ title: "Edit Profile", href: null, headerShown: false }} />
-      <Tabs.Screen name="fighter/[fighterId]" options={{ title: "Fighter Profile", href: null, headerShown: false }} />
-      <Tabs.Screen name="gym/[gymId]" options={{ title: "Gym", href: null, headerShown: false }} />
-      <Tabs.Screen name="chat/[matchId]" options={{ title: "Chat", href: null, headerShown: true }} />
     </Tabs>
   );
 }

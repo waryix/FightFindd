@@ -1,8 +1,8 @@
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
 import { router } from "expo-router";
 import { useState, useEffect } from "react";
-import { getSession } from "../../src/store/session";
-import { API_URL } from "../../src/services/config";
+import { getSession } from "../src/store/session";
+import { API_URL } from "../src/services/config";
 import type { Discipline, SkillLevel, WeightClass } from "@repo/types/fighter";
 
 const DISCIPLINES: Discipline[] = ["boxing", "mma", "kickboxing", "muay_thai", "bjj", "wrestling"];

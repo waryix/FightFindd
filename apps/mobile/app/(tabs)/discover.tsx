@@ -165,7 +165,7 @@ export default function DiscoverScreen() {
     return (
       <TouchableOpacity
         style={styles.card}
-        onPress={() => router.push({ pathname: "/(tabs)/fighter/[fighterId]", params: { fighterId: item.id } })}
+        onPress={() => router.push({ pathname: "/fighter/[fighterId]", params: { fighterId: item.id } })}
         activeOpacity={0.8}
       >
         <View style={styles.cardTop}>
@@ -212,7 +212,7 @@ export default function DiscoverScreen() {
             onPress={(e) => {
               e.stopPropagation();
               router.push({
-                pathname: "/(tabs)/request/[receiverId]",
+                pathname: "/request/[receiverId]",
                 params: { receiverId: item.id, receiverName: item.name, receiverSkill: item.skill_level, receiverDisciplines: JSON.stringify(item.discipline) },
               });
             }}

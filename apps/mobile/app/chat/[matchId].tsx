@@ -1,8 +1,8 @@
 import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useState, useEffect, useRef } from "react";
-import { getSession, getToken } from "../../../src/store/session";
-import { API_URL } from "../../../src/services/config";
+import { getSession, getToken } from "../../src/store/session";
+import { API_URL } from "../../src/services/config";
 
 export default function ChatScreen() {
   const { matchId, otherName } = useLocalSearchParams<{

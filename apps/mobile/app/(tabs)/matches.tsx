@@ -111,7 +111,7 @@ export default function MatchesScreen() {
           <TouchableOpacity
             style={styles.avatar}
             onPress={() => otherFighter && router.push({
-              pathname: "/(tabs)/fighter/[fighterId]",
+              pathname: "/fighter/[fighterId]",
               params: { fighterId: otherFighter.id },
             })}
           >
@@ -167,7 +167,7 @@ export default function MatchesScreen() {
             <TouchableOpacity
               style={styles.messageBtn}
               onPress={() => router.push({
-                pathname: "/(tabs)/chat/[matchId]",
+                pathname: "/chat/[matchId]",
                 params: {
                   matchId: item.id,
                   otherName: otherFighter?.name ?? "Fighter",
