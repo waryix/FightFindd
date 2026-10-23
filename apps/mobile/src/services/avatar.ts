@@ -10,13 +10,20 @@ export async function pickAndUploadAvatar(_fighterId: string): Promise<string | 
     mediaTypes: ImagePicker.MediaTypeOptions.Images,
     allowsEditing: true,
     aspect: [1, 1],
-    quality: 0.7,
+    quality: 0.5,
+    base64: true,
   });
 
   if (result.canceled || !result.assets[0]) return null;
 
-  // Local dev: use the picked asset URI directly (no remote storage).
-  return result.assets[0].uri;
+  // Persist as a data URI so the avatar survives a refresh/reload
+  // (blob:/file: URIs are not stable across sessions).
+  const asset = result.assets[0];
+  if (asset.base64) {
+    const mime = asset.mimeType ?? "image/jpeg";
+    return `data:${mime};base64,${asset.base64}`;
+  }
+  return asset.uri;
 }
 
 export function getAvatarUrl(_fighterId: string): string {

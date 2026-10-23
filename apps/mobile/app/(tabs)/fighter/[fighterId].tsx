@@ -18,7 +18,12 @@ export default function FighterDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [myId, setMyId] = useState<string | null>(null);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    if (!fighterId) return;
+    setLoading(true);
+    setFighter(null);
+    loadData();
+  }, [fighterId]);
 
   const loadData = async () => {
     try {

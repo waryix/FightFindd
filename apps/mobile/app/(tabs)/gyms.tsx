@@ -1,5 +1,6 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, RefreshControl, Pressable } from "react-native";
-import { useState, useEffect } from "react";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, RefreshControl, ScrollView } from "react-native";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { API_URL } from "../../src/services/config";
 import { useHideTabBarOnScroll, useResetTabBarOnFocus } from "../../src/store/tabBar";
@@ -65,8 +66,22 @@ export default function GymsScreen() {
     finally { if (!silent) setLoading(false); }
   };
 
+  const fetchRef = useRef<() => void>(() => {});
+  fetchRef.current = () => { fetchGyms(true); };
+  const firstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (firstFocus.current) { firstFocus.current = false; return; }
+      fetchRef.current();
+    }, [])
+  );
+
+  const openGym = (gymId: string) => {
+    router.push({ pathname: "/(tabs)/gym/[gymId]", params: { gymId } });
+  };
+
   const renderGym = ({ item }: { item: any }) => (
-    <View style={styles.card}>
+    <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={() => openGym(item.id)}>
       <View style={styles.cardHeader}>
         <View style={styles.gymIcon}>
           <Text style={styles.gymIconText}>
@@ -115,116 +130,105 @@ export default function GymsScreen() {
       {item.description && <Text style={styles.description} numberOfLines={2}>{item.description}</Text>}
 
       <View style={styles.cardActions}>
-        <TouchableOpacity style={styles.callBtn}>
-          <Text style={styles.callBtnText}>Call Gym</Text>
+        <Text style={styles.detailsBtnText}>View details →</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
+  const header = (
+    <View style={styles.header}>
+      <View style={styles.headerText}>
+        <Text style={styles.headerSub} numberOfLines={1}>Boxing, MMA and combat sports gyms</Text>
+      </View>
+      <View style={styles.headerActions}>
+        {showSearch ? (
+          <View style={styles.inlineSearch}>
+            <Ionicons name="search" size={13} color="#555555" />
+            <TextInput
+              style={styles.inlineSearchInput}
+              placeholder="Search"
+              placeholderTextColor="#444"
+              value={search}
+              onChangeText={setSearch}
+              autoFocus
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch("")}>
+                <Ionicons name="close-circle" size={13} color="#555555" />
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : null}
+        <TouchableOpacity
+          style={[styles.iconBtn, showSearch && styles.iconBtnActive]}
+          onPress={() => setShowSearch(v => !v)}
+        >
+          <Ionicons name={showSearch ? "close" : "search"} size={16} color={showSearch ? "#e63946" : "#888888"} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.detailsBtn}>
-          <Text style={styles.detailsBtnText}>View Details</Text>
+        <TouchableOpacity
+          style={[styles.iconBtn, activeFilterCount > 0 && styles.iconBtnActive]}
+          onPress={() => setShowFilters(v => !v)}
+        >
+          <Ionicons name="funnel-outline" size={16} color={activeFilterCount > 0 ? "#e63946" : "#888888"} />
         </TouchableOpacity>
       </View>
     </View>
   );
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-          <View style={styles.headerText}>
-            <Text style={styles.headerSub} numberOfLines={1}>Boxing, MMA and combat sports gyms</Text>
-          </View>
-        <View style={styles.headerActions}>
-          {showSearch ? (
-            <View style={styles.inlineSearch}>
-              <Ionicons name="search" size={13} color="#555555" />
-              <TextInput
-                style={styles.inlineSearchInput}
-                placeholder="Search"
-                placeholderTextColor="#444"
-                value={search}
-                onChangeText={setSearch}
-                autoFocus
-              />
-              {search.length > 0 && (
-                <TouchableOpacity onPress={() => setSearch("")}>
-                  <Ionicons name="close-circle" size={13} color="#555555" />
-                </TouchableOpacity>
-              )}
-            </View>
-          ) : null}
+  const filterPanel = showFilters ? (
+    <View style={styles.filterPanel}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterList}>
+        {DISCIPLINE_FILTERS.map((item) => (
           <TouchableOpacity
-            style={[styles.iconBtn, showSearch && styles.iconBtnActive]}
-            onPress={() => setShowSearch(v => !v)}
+            key={item}
+            style={[styles.filterChip, disciplines.includes(item) && styles.filterChipActive]}
+            onPress={() => toggleDiscipline(item)}
           >
-            <Ionicons name={showSearch ? "close" : "search"} size={16} color={showSearch ? "#e63946" : "#888888"} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.iconBtn, activeFilterCount > 0 && styles.iconBtnActive]}
-            onPress={() => setShowFilters(v => !v)}
-          >
-            <Ionicons name="funnel-outline" size={16} color={activeFilterCount > 0 ? "#e63946" : "#888888"} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.body}>
-      {showFilters ? (
-        <View style={styles.filterPanel}>
-          <View style={styles.filterRow}>
-            <FlatList
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              data={DISCIPLINE_FILTERS}
-              keyExtractor={item => item}
-              contentContainerStyle={styles.filterList}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[styles.filterChip, disciplines.includes(item) && styles.filterChipActive]}
-                  onPress={() => toggleDiscipline(item)}
-                >
-                  <Text style={[styles.filterChipText, disciplines.includes(item) && styles.filterChipTextActive]}>
-                    {item.replace("_", " ")}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[styles.trialToggle, trialOnly && styles.trialToggleActive]}
-            onPress={() => setTrialOnly(!trialOnly)}
-          >
-            <Text style={[styles.trialToggleText, trialOnly && styles.trialToggleTextActive]}>
-              {trialOnly ? "Showing: Free trial only" : "Show free trial gyms only"}
+            <Text style={[styles.filterChipText, disciplines.includes(item) && styles.filterChipTextActive]}>
+              {item.replace("_", " ")}
             </Text>
           </TouchableOpacity>
-        </View>
-      ) : null}
+        ))}
+      </ScrollView>
 
-      {loading ? (
-        <View style={styles.center}><ActivityIndicator color="#e63946" size="large" /><Text style={styles.loadingText}>Finding gyms...</Text></View>
-      ) : error ? (
-        <View style={styles.center}><Text style={styles.errorText}>{error}</Text><TouchableOpacity style={styles.retryBtn} onPress={() => fetchGyms()}><Text style={styles.retryBtnText}>Retry</Text></TouchableOpacity></View>
-      ) : gyms.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.emptyText}>No gyms found</Text>
-          <Text style={styles.emptySubText}>Try a different search</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={gyms}
-          keyExtractor={item => item.id}
-          renderItem={renderGym}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          onScroll={onScroll}
-          scrollEventThrottle={16}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e63946" colors={["#e63946"]} />}
-        />
-      )}
+      <TouchableOpacity
+        style={[styles.trialToggle, trialOnly && styles.trialToggleActive]}
+        onPress={() => setTrialOnly(!trialOnly)}
+      >
+        <Text style={[styles.trialToggleText, trialOnly && styles.trialToggleTextActive]}>
+          {trialOnly ? "Showing: Free trial only" : "Show free trial gyms only"}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  ) : null;
 
-        {showSearch ? (
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowSearch(false)} />
-        ) : null}
-      </View>
+  const emptyState = loading ? (
+    <View style={styles.center}><ActivityIndicator color="#e63946" size="large" /><Text style={styles.loadingText}>Finding gyms...</Text></View>
+  ) : error ? (
+    <View style={styles.center}><Text style={styles.errorText}>{error}</Text><TouchableOpacity style={styles.retryBtn} onPress={() => fetchGyms()}><Text style={styles.retryBtnText}>Retry</Text></TouchableOpacity></View>
+  ) : (
+    <View style={styles.center}>
+      <Text style={styles.emptyText}>No gyms found</Text>
+      <Text style={styles.emptySubText}>Try a different search</Text>
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      <FlatList
+        data={loading || error ? [] : gyms}
+        keyExtractor={item => item.id}
+        renderItem={renderGym}
+        ListHeaderComponent={<View>{header}{filterPanel}</View>}
+        ListEmptyComponent={emptyState}
+        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        onScrollBeginDrag={() => { if (showSearch) setShowSearch(false); }}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e63946" colors={["#e63946"]} />}
+      />
     </View>
   );
 }
@@ -232,7 +236,7 @@ export default function GymsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0a0a0a" },
   body: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
+  header: { paddingHorizontal: 0, paddingTop: 4, paddingBottom: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
   headerText: { flex: 1, minWidth: 0 },
   headerTitle: { fontSize: 28, fontWeight: "800", color: "#fff" },
   headerSub: { fontSize: 14, color: "#666", marginTop: 2 },

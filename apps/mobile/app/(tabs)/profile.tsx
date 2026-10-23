@@ -1,6 +1,6 @@
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from "react-native";
-import { router } from "expo-router";
-import { useState, useEffect } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, RefreshControl } from "react-native";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import { getSession, clearSession } from "../../src/store/session";
 import { API_URL } from "../../src/services/config";
 import { upgradeToPro, PRO_PRICE } from "../../src/services/payments";
@@ -11,10 +11,16 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState(false);
   const [proMsg, setProMsg] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => { loadProfile(); }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile(true);
+    }, [])
+  );
 
-  const loadProfile = async () => {
+  const loadProfile = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const fighterId = await getSession();
       if (!fighterId) { router.replace("/"); return; }
@@ -22,7 +28,13 @@ export default function ProfileScreen() {
       const data = await response.json();
       if (response.ok) setFighter(data.fighter);
     } catch (err) { console.error(err); }
-    finally { setLoading(false); }
+    finally { if (!silent) setLoading(false); }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadProfile(true);
+    setRefreshing(false);
   };
 
   const handleLogout = async () => {
@@ -51,7 +63,7 @@ export default function ProfileScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>Could not load profile</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={loadProfile}>
+        <TouchableOpacity style={styles.retryBtn} onPress={() => loadProfile()}>
           <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
       </View>
@@ -59,7 +71,12 @@ export default function ProfileScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e63946" colors={["#e63946"]} />}
+    >
       <View style={styles.header}>
         <Avatar
           name={fighter.name}

@@ -1,5 +1,5 @@
 import { View, Text, Image, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { pickAndUploadAvatar } from "../services/avatar";
 import { API_URL } from "../services/config";
 import { getSession } from "../store/session";
@@ -15,6 +15,10 @@ interface AvatarProps {
 export default function Avatar({ name, avatarUrl, size = 52, editable = false, onUploaded }: AvatarProps) {
   const [uploading, setUploading] = useState(false);
   const [currentUrl, setCurrentUrl] = useState(avatarUrl);
+
+  useEffect(() => {
+    setCurrentUrl(avatarUrl ?? null);
+  }, [avatarUrl]);
 
   const initials = name
     .split(" ")

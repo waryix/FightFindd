@@ -1,5 +1,6 @@
 import { Tabs } from "expo-router";
 import { Pressable, Text } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TAB_BAR_HEIGHT, tabBarTranslateY } from "../../src/store/tabBar";
 
@@ -37,6 +38,27 @@ function tabButton(text: string) {
   return TabButton;
 }
 
+function profileTabButton() {
+  function ProfileButton(props: any) {
+    const selected = Boolean(props["aria-selected"]);
+    return (
+      <Pressable
+        onPress={props.onPress}
+        onLongPress={props.onLongPress}
+        testID={props.testID}
+        style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+      >
+        <Ionicons
+          name={selected ? "person-circle" : "person-circle-outline"}
+          size={28}
+          color={selected ? "#e63946" : "#ffffff"}
+        />
+      </Pressable>
+    );
+  }
+  return ProfileButton;
+}
+
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
 
@@ -58,15 +80,27 @@ export default function TabsLayout() {
         tabBarIcon: () => null,
         tabBarItemStyle: { flex: 1 },
         headerShown: false,
+        headerStyle: { backgroundColor: "#0a0a0a" },
+        headerTintColor: "#ffffff",
+        headerTitleStyle: { fontWeight: "bold" },
+        sceneStyle: { backgroundColor: "#0a0a0a" },
       }}
     >
       <Tabs.Screen name="discover" options={{ title: "Discover", tabBarButton: tabButton("Discover") }} />
       <Tabs.Screen name="gyms" options={{ title: "Gyms", tabBarButton: tabButton("Gyms") }} />
       <Tabs.Screen name="matches" options={{ title: "Matches", tabBarButton: tabButton("Matches") }} />
-      <Tabs.Screen name="profile" options={{ title: "Profile", tabBarButton: tabButton("Profile") }} />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profile",
+          tabBarButton: profileTabButton(),
+          tabBarItemStyle: { flex: 0, width: 60 },
+        }}
+      />
       <Tabs.Screen name="request/[receiverId]" options={{ title: "Request Sparring", tabBarButton: () => null, headerShown: true }} />
-      <Tabs.Screen name="edit-profile" options={{ title: "Edit Profile", tabBarButton: () => null, headerShown: true }} />
-      <Tabs.Screen name="fighter/[fighterId]" options={{ title: "Fighter Profile", tabBarButton: () => null, headerShown: true }} />
+      <Tabs.Screen name="edit-profile" options={{ title: "Edit Profile", tabBarButton: () => null, headerShown: false }} />
+      <Tabs.Screen name="fighter/[fighterId]" options={{ title: "Fighter Profile", tabBarButton: () => null, headerShown: false }} />
+      <Tabs.Screen name="gym/[gymId]" options={{ title: "Gym", tabBarButton: () => null, headerShown: false }} />
       <Tabs.Screen name="chat/[matchId]" options={{ title: "Chat", tabBarButton: () => null, headerShown: true }} />
     </Tabs>
   );

@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from "react-native";
-import { useState, useEffect } from "react";
-import { router } from "expo-router";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { router, useFocusEffect } from "expo-router";
 import { getSession, getToken } from "../../src/store/session";
 import { API_URL } from "../../src/services/config";
 import { useHideTabBarOnScroll, useResetTabBarOnFocus } from "../../src/store/tabBar";
@@ -81,6 +81,16 @@ export default function MatchesScreen() {
       fetchMatches();
     } catch (err) { console.error(err); }
   };
+
+  const fetchRef = useRef<() => void>(() => {});
+  fetchRef.current = () => { fetchMatches(true); };
+  const firstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (firstFocus.current) { firstFocus.current = false; return; }
+      fetchRef.current();
+    }, [])
+  );
 
   const received = matches.filter(m => m.receiver_id === myId);
   const sent = matches.filter(m => m.sender_id === myId);

@@ -1,6 +1,6 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, ScrollView, TextInput, RefreshControl, Pressable } from "react-native";
-import { useState, useEffect } from "react";
-import { router } from "expo-router";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, ScrollView, TextInput, RefreshControl } from "react-native";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { router, useFocusEffect } from "expo-router";
 import * as Location from "expo-location";
 import { getSession } from "../../src/store/session";
 import { API_URL } from "../../src/services/config";
@@ -128,6 +128,16 @@ export default function DiscoverScreen() {
     finally { if (!silent) setLoading(false); }
   };
 
+  const fetchRef = useRef<() => void>(() => {});
+  fetchRef.current = () => { fetchFighters(true); };
+  const firstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (firstFocus.current) { firstFocus.current = false; return; }
+      fetchRef.current();
+    }, [])
+  );
+
   const activeFilterCount = Object.entries(appliedFilters).filter(([key, val]) => {
     if (key === "radiusKm") return false;
     if (typeof val === "boolean") return val;
@@ -211,77 +221,77 @@ export default function DiscoverScreen() {
     );
   };
 
+  const header = (
+    <View style={styles.header}>
+      <View style={styles.headerText}>
+        <Text style={styles.headerSub} numberOfLines={1}>
+          {appliedFilters.useLocation && location ? `Within ${appliedFilters.radiusKm}km of you` : "Find sparring partners"}
+        </Text>
+      </View>
+      <View style={styles.headerActions}>
+        {showSearch ? (
+          <View style={styles.inlineSearch}>
+            <Ionicons name="search" size={13} color="#555555" />
+            <TextInput
+              style={styles.inlineSearchInput}
+              placeholder="Search"
+              placeholderTextColor="#444"
+              value={search}
+              onChangeText={setSearch}
+              returnKeyType="search"
+              autoFocus
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch("")}>
+                <Ionicons name="close-circle" size={13} color="#555555" />
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : null}
+        <TouchableOpacity
+          style={[styles.iconBtn, showSearch && styles.iconBtnActive]}
+          onPress={() => setShowSearch(v => !v)}
+        >
+          <Ionicons name={showSearch ? "close" : "search"} size={16} color={showSearch ? "#e63946" : "#888888"} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.iconBtn, activeFilterCount > 0 && styles.iconBtnActive]}
+          onPress={() => setShowFilters(true)}
+        >
+          <Ionicons name="funnel-outline" size={16} color={activeFilterCount > 0 ? "#e63946" : "#888888"} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const emptyState = loading ? (
+    <View style={styles.center}><ActivityIndicator color="#e63946" size="large" /><Text style={styles.loadingText}>Finding fighters...</Text></View>
+  ) : error ? (
+    <View style={styles.center}><Text style={styles.errorText}>{error}</Text><TouchableOpacity style={styles.retryBtn} onPress={() => fetchFighters()}><Text style={styles.retryBtnText}>Retry</Text></TouchableOpacity></View>
+  ) : (
+    <View style={styles.center}>
+      <Text style={styles.emptyText}>No fighters found</Text>
+      <Text style={styles.emptySubText}>Try a different search or adjust filters</Text>
+      <TouchableOpacity style={styles.retryBtn} onPress={handleClear}><Text style={styles.retryBtnText}>Clear filters</Text></TouchableOpacity>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerText}>
-          <Text style={styles.headerSub} numberOfLines={1}>
-            {appliedFilters.useLocation && location ? `Within ${appliedFilters.radiusKm}km of you` : "Find sparring partners"}
-          </Text>
-        </View>
-        <View style={styles.headerActions}>
-          {showSearch ? (
-            <View style={styles.inlineSearch}>
-              <Ionicons name="search" size={13} color="#555555" />
-              <TextInput
-                style={styles.inlineSearchInput}
-                placeholder="Search"
-                placeholderTextColor="#444"
-                value={search}
-                onChangeText={setSearch}
-                returnKeyType="search"
-                autoFocus
-              />
-              {search.length > 0 && (
-                <TouchableOpacity onPress={() => setSearch("")}>
-                  <Ionicons name="close-circle" size={13} color="#555555" />
-                </TouchableOpacity>
-              )}
-            </View>
-          ) : null}
-          <TouchableOpacity
-            style={[styles.iconBtn, showSearch && styles.iconBtnActive]}
-            onPress={() => setShowSearch(v => !v)}
-          >
-            <Ionicons name={showSearch ? "close" : "search"} size={16} color={showSearch ? "#e63946" : "#888888"} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.iconBtn, activeFilterCount > 0 && styles.iconBtnActive]}
-            onPress={() => setShowFilters(true)}
-          >
-            <Ionicons name="funnel-outline" size={16} color={activeFilterCount > 0 ? "#e63946" : "#888888"} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.body}>
-      {loading ? (
-        <View style={styles.center}><ActivityIndicator color="#e63946" size="large" /><Text style={styles.loadingText}>Finding fighters...</Text></View>
-      ) : error ? (
-        <View style={styles.center}><Text style={styles.errorText}>{error}</Text><TouchableOpacity style={styles.retryBtn} onPress={() => fetchFighters()}><Text style={styles.retryBtnText}>Retry</Text></TouchableOpacity></View>
-      ) : fighters.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.emptyText}>No fighters found</Text>
-          <Text style={styles.emptySubText}>Try a different search or adjust filters</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={handleClear}><Text style={styles.retryBtnText}>Clear filters</Text></TouchableOpacity>
-        </View>
-      ) : (
-        <FlatList
-          data={fighters}
-          keyExtractor={item => item.id}
-          renderItem={renderFighter}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          onScroll={onScroll}
-          scrollEventThrottle={16}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e63946" colors={["#e63946"]} />}
-        />
-      )}
-
-        {showSearch ? (
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowSearch(false)} />
-        ) : null}
-      </View>
+      <FlatList
+        data={loading || error ? [] : fighters}
+        keyExtractor={item => item.id}
+        renderItem={renderFighter}
+        ListHeaderComponent={header}
+        ListEmptyComponent={emptyState}
+        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        onScrollBeginDrag={() => { if (showSearch) setShowSearch(false); }}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e63946" colors={["#e63946"]} />}
+      />
 
       <Modal visible={showFilters} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
@@ -377,7 +387,7 @@ export default function DiscoverScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0a0a0a" },
   body: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
+  header: { paddingHorizontal: 0, paddingTop: 4, paddingBottom: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
   headerText: { flex: 1, minWidth: 0 },
   headerTitle: { fontSize: 28, fontWeight: "800", color: "#fff" },
   headerSub: { fontSize: 14, color: "#666", marginTop: 2 },
