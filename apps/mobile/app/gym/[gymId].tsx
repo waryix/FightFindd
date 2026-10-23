@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Linking } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { API_URL } from "../../src/services/config";
 
@@ -48,6 +49,12 @@ export default function GymDetailScreen() {
     );
   }
 
+  const mapsQuery =
+    gym.latitude != null && gym.longitude != null
+      ? `${gym.latitude},${gym.longitude}`
+      : [gym.name, gym.address, gym.city, gym.state, gym.pincode].filter(Boolean).join(", ");
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`;
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
@@ -62,6 +69,10 @@ export default function GymDetailScreen() {
         </View>
         <Text style={styles.location}>{gym.address}</Text>
         <Text style={styles.city}>{gym.city}, {gym.state}{gym.pincode ? ` ${gym.pincode}` : ""}</Text>
+        <TouchableOpacity style={styles.mapBtn} onPress={() => Linking.openURL(mapsUrl)}>
+          <Ionicons name="location-outline" size={18} color="#ffffff" />
+          <Text style={styles.mapBtnText}>Open in Maps</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.disciplines}>
@@ -115,6 +126,8 @@ const styles = StyleSheet.create({
   verifiedText: { color: "#22c55e", fontSize: 10, fontWeight: "600" },
   location: { fontSize: 14, color: "#888", textAlign: "center" },
   city: { fontSize: 13, color: "#666" },
+  mapBtn: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#1a1a1a", borderWidth: 1, borderColor: "#2a2a2a", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9, marginTop: 8 },
+  mapBtnText: { color: "#ffffff", fontSize: 14, fontWeight: "600" },
   disciplines: { flexDirection: "row", flexWrap: "wrap", gap: 6, justifyContent: "center", marginBottom: 18 },
   chip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, backgroundColor: "#1a1a1a", borderWidth: 1 },
   chipText: { fontSize: 12, fontWeight: "500", textTransform: "capitalize" },

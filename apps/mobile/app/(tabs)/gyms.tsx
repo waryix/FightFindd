@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, RefreshControl, ScrollView } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, RefreshControl, ScrollView, Linking } from "react-native";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -134,6 +134,20 @@ export default function GymsScreen() {
 
       <View style={styles.cardActions}>
         <Text style={styles.detailsBtnText}>View details →</Text>
+        <TouchableOpacity
+          style={styles.mapLink}
+          onPress={(e) => {
+            (e as any).stopPropagation?.();
+            const q =
+              item.latitude != null && item.longitude != null
+                ? `${item.latitude},${item.longitude}`
+                : [item.name, item.address, item.city, item.state, item.pincode].filter(Boolean).join(", ");
+            Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`);
+          }}
+        >
+          <Ionicons name="location-outline" size={14} color="#e63946" />
+          <Text style={styles.mapLinkText}>Map</Text>
+        </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
@@ -282,7 +296,9 @@ const styles = StyleSheet.create({
   trialBanner: { backgroundColor: "#22c55e11", borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10, marginBottom: 10, borderWidth: 1, borderColor: "#22c55e33" },
   trialText: { color: "#22c55e", fontSize: 12, fontWeight: "600" },
   description: { fontSize: 13, color: "#666", lineHeight: 18, marginBottom: 12 },
-  cardActions: { flexDirection: "row", gap: 10 },
+  cardActions: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  mapLink: { flexDirection: "row", alignItems: "center", gap: 4 },
+  mapLinkText: { color: "#e63946", fontSize: 13, fontWeight: "600" },
   callBtn: { flex: 1, backgroundColor: "#1a1a1a", borderRadius: 10, paddingVertical: 10, alignItems: "center", borderWidth: 1, borderColor: "#2a2a2a" },
   callBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
   detailsBtn: { flex: 1, backgroundColor: "#e6394622", borderRadius: 10, paddingVertical: 10, alignItems: "center", borderWidth: 1, borderColor: "#e6394655" },
