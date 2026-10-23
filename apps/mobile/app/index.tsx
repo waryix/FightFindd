@@ -1,11 +1,23 @@
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from "react-native";
 import { router } from "expo-router";
-import { useState } from "react";
-import { saveSession } from "../src/store/session";
+import { useEffect, useState } from "react";
+import { saveSession, getSession } from "../src/store/session";
 import { API_URL } from "../src/services/config";
 
 export default function LandingScreen() {
   const [guestLoading, setGuestLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const fighterId = await getSession();
+      if (fighterId) {
+        router.replace("/(tabs)/discover");
+        return;
+      }
+      setChecking(false);
+    })();
+  }, []);
 
   const handleGuest = async () => {
     setGuestLoading(true);
@@ -25,6 +37,14 @@ export default function LandingScreen() {
   const handleGymOwner = () => {
     router.push("/gym-owner");
   };
+
+  if (checking) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator color="#e63946" size="large" />
+      </View>
+    );
+  }
 
   return (
     <ScrollView
@@ -85,6 +105,7 @@ export default function LandingScreen() {
 }
 
 const styles = StyleSheet.create({
+  loading: { flex: 1, backgroundColor: "#0a0a0a", alignItems: "center", justifyContent: "center" },
   container: {
     flex: 1,
     backgroundColor: "#0a0a0a",

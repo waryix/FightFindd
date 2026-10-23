@@ -1,4 +1,4 @@
-import { Stack, router, usePathname } from "expo-router";
+import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { View, ActivityIndicator, Platform } from "react-native";
@@ -10,7 +10,6 @@ import { supabase } from "../src/services/supabase";
 export default function RootLayout() {
   const [checking, setChecking] = useState(true);
   const [hasSession, setHasSession] = useState(false);
-  const pathname = usePathname();
 
   useEffect(() => {
     setupNotificationHandlers();
@@ -47,12 +46,6 @@ export default function RootLayout() {
       registerAndSavePushToken();
     }
   }, [checking, hasSession]);
-
-  useEffect(() => {
-    if (!checking && hasSession && pathname === "/") {
-      router.replace("/(tabs)/discover");
-    }
-  }, [checking, hasSession, pathname]);
 
   const checkSession = async () => {
     try {
