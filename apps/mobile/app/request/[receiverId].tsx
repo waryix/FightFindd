@@ -33,6 +33,7 @@ export default function RequestSparringScreen() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [needsSub, setNeedsSub] = useState(false);
 
   const selectedDateTime = (() => {
     if (!dateValue || !timeValue) return null;
@@ -82,7 +83,12 @@ export default function RequestSparringScreen() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(`Error: ${data.error}`);
+        if (data.code === "SUBSCRIPTION_REQUIRED") {
+          setNeedsSub(true);
+          setError("You've used your 3 free matches. Subscribe for ₹99/month to keep matching.");
+        } else {
+          setError(`Error: ${data.error}`);
+        }
         return;
       }
 
@@ -109,6 +115,14 @@ export default function RequestSparringScreen() {
       </View>
 
       {error ? <Text style={styles.errorBox}>{error}</Text> : null}
+      {needsSub ? (
+        <TouchableOpacity
+          style={styles.subscribeBtn}
+          onPress={() => router.replace("/(tabs)/profile")}
+        >
+          <Text style={styles.subscribeBtnText}>Go to Profile to subscribe →</Text>
+        </TouchableOpacity>
+      ) : null}
 
       <Text style={styles.label}>Discipline *</Text>
       <View style={styles.chips}>
@@ -205,5 +219,7 @@ const styles = StyleSheet.create({
   cancelBtn: { paddingVertical: 14, alignItems: "center", marginTop: 8 },
   cancelBtnText: { color: "#555", fontSize: 15 },
   errorBox: { backgroundColor: "#2a0a0a", borderRadius: 8, padding: 12, color: "#e63946", fontSize: 13, marginBottom: 8, borderWidth: 1, borderColor: "#e63946" },
+  subscribeBtn: { backgroundColor: "#e6394622", borderWidth: 1, borderColor: "#e6394655", borderRadius: 10, paddingVertical: 12, alignItems: "center", marginBottom: 12 },
+  subscribeBtnText: { color: "#e63946", fontSize: 14, fontWeight: "700" },
   pastHint: { color: "#e63946", fontSize: 12, marginTop: 6 },
 });

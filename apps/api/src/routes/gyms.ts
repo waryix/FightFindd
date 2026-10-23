@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { and, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { db } from "../config/db";
-import { gymDisciplines, gymOwners, gymProfiles, payments } from "../db/schema";
+import { gymDisciplines, gymOwners, gymProfiles, payments, subscriptions } from "../db/schema";
 import { getGymById, getGymRowById, hydrateGyms, findGymsForOwner } from "../db/loaders";
 import { requireAuth, requireNotGuest } from "../middleware/auth";
 
@@ -53,7 +53,7 @@ gymRouter.get("/", async (req, res) => {
       .where(conditions.length ? and(...conditions) : undefined)
       .orderBy(desc(gymProfiles.createdAt));
 
-    let gyms = await hydrateGyms(rows);
+    let gyms = (await hydrateGyms(rows)).filter((g) => g.monthly_status === "active");
 
     if (lat && lng && radius_km) {
       const userLat = parseFloat(lat as string);
@@ -178,6 +178,19 @@ gymRouter.post("/", requireAuth, requireNotGuest, requireGymOwner, async (req, r
       .update(payments)
       .set({ gymId: gym.id, updatedAt: new Date().toISOString() })
       .where(eq(payments.id, payment.id));
+
+    // Registration includes the first month; the gym stays discoverable until
+    // the monthly fee is due. Paying ₹300 extends this by another 30 days.
+    const now = new Date();
+    const end = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    await db.insert(subscriptions).values({
+      userId: ownerUserId,
+      gymId: gym.id,
+      type: "gym_monthly",
+      status: "active",
+      currentPeriodStart: now.toISOString(),
+      currentPeriodEnd: end.toISOString(),
+    });
 
     const created = await getGymById(gym.id);
     res.status(201).json({ gym: created });

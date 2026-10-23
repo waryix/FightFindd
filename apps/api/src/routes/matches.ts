@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
-import { desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, or, sql } from "drizzle-orm";
 import { db } from "../config/db";
-import { sparringRequests } from "../db/schema";
+import { sparringRequests, subscriptions } from "../db/schema";
 import { getFightersByUserIds } from "../db/loaders";
 import { mapSparring } from "../db/mappers";
 import { sendPushNotification } from "../services/notifications";
@@ -44,15 +44,50 @@ matchRouter.get("/", async (req, res) => {
   }
 });
 
+const FREE_MATCH_LIMIT = 3;
+
 matchRouter.post("/", requireNotGuest, async (req, res) => {
   const body = req.body as any;
+  const senderId = (req as any).user?.id as string | undefined;
+  if (!senderId) { res.status(401).json({ error: "Missing account." }); return; }
 
   try {
+    const subs = await db
+      .select()
+      .from(subscriptions)
+      .where(
+        and(
+          eq(subscriptions.userId, senderId),
+          eq(subscriptions.type, "fighter_monthly"),
+          eq(subscriptions.status, "active")
+        )
+      );
+    const now = Date.now();
+    const subscribed = subs.some(
+      (s) => !s.currentPeriodEnd || new Date(s.currentPeriodEnd).getTime() > now
+    );
+
+    if (!subscribed) {
+      const countRows = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(sparringRequests)
+        .where(eq(sparringRequests.senderId, senderId));
+      const used = Number(countRows[0]?.count ?? 0);
+      if (used >= FREE_MATCH_LIMIT) {
+        res.status(403).json({
+          error: "You've used your 3 free matches. Subscribe for ₹99/month to keep matching.",
+          code: "SUBSCRIPTION_REQUIRED",
+          freeLimit: FREE_MATCH_LIMIT,
+        });
+        return;
+      }
+    }
+
     const match = (
       await db
         .insert(sparringRequests)
         .values({
-          senderId: body.sender_id ?? body.senderId,
+          senderId,
           receiverId: body.receiver_id ?? body.receiverId,
           discipline: body.discipline ?? "mixed",
           proposedDate: body.proposed_date ?? body.proposedDate ?? new Date().toISOString(),

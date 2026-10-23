@@ -32,6 +32,6 @@ services:
       - key: RAZORPAY_KEY_SECRET
         sync: false
       - key: PAYMENTS_MOCK
-        value: "true"
+        value: "false"
       - key: FIREBASE_SERVICE_ACCOUNT
         sync: false

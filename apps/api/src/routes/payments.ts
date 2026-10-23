@@ -8,9 +8,10 @@ import { createOrder, verifySignature, PAYMENTS_MOCK, RAZORPAY_KEY_ID } from "..
 export const paymentRouter: IRouter = Router();
 
 const PRICES = {
-  gym_registration: 100000, // ₹1000 one-time
-  gym_monthly: 30000,       // ₹300 / month
-  fighter_pro: 10000,       // ₹100 one-time
+  gym_registration: 100000,     // ₹1000 one-time
+  gym_monthly: 30000,           // ₹300 / month
+  fighter_pro: 10000,           // ₹100 one-time (legacy)
+  fighter_subscription: 9900,   // ₹99 / month
 } as const;
 
 type Purpose = keyof typeof PRICES;
@@ -76,6 +77,17 @@ paymentRouter.post("/gym/monthly/order", requireAuth, requireNotGuest, async (re
   }
 });
 
+paymentRouter.post("/fighter/subscription/order", requireAuth, requireNotGuest, async (req, res) => {
+  try {
+    const amount = PRICES.fighter_subscription;
+    const order = await createOrder(amount, "fighter_subscription");
+    await saveOrder(order.id, amount, "fighter_subscription", (req as any).user.id);
+    res.json({ order, amount, purpose: "fighter_subscription" });
+  } catch (err: any) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
 paymentRouter.post("/pro/order", async (req, res) => {
   const { fighterId } = req.body;
   if (!fighterId) { res.status(400).json({ error: "fighterId is required" }); return; }
@@ -126,7 +138,6 @@ paymentRouter.post("/verify", async (req, res) => {
 
     if (payment.type === "gym_monthly" && payment.gymId) {
       const now = new Date();
-      const end = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
       const existing = (
         await db
@@ -141,6 +152,14 @@ paymentRouter.post("/verify", async (req, res) => {
           .orderBy(desc(subscriptions.createdAt))
           .limit(1)
       )[0];
+
+      const base =
+        existing?.status === "active" &&
+        existing.currentPeriodEnd &&
+        new Date(existing.currentPeriodEnd) > now
+          ? new Date(existing.currentPeriodEnd)
+          : now;
+      const end = new Date(base.getTime() + 30 * 24 * 60 * 60 * 1000);
 
       if (existing) {
         await db
@@ -157,6 +176,50 @@ paymentRouter.post("/verify", async (req, res) => {
           userId: payment.userId,
           gymId: payment.gymId,
           type: "gym_monthly",
+          status: "active",
+          currentPeriodStart: now.toISOString(),
+          currentPeriodEnd: end.toISOString(),
+        });
+      }
+    } else if (payment.type === "fighter_subscription") {
+      const now = new Date();
+
+      const existing = (
+        await db
+          .select()
+          .from(subscriptions)
+          .where(
+            and(
+              eq(subscriptions.userId, payment.userId),
+              eq(subscriptions.type, "fighter_monthly")
+            )
+          )
+          .orderBy(desc(subscriptions.createdAt))
+          .limit(1)
+      )[0];
+
+      const base =
+        existing?.status === "active" &&
+        existing.currentPeriodEnd &&
+        new Date(existing.currentPeriodEnd) > now
+          ? new Date(existing.currentPeriodEnd)
+          : now;
+      const end = new Date(base.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+      if (existing) {
+        await db
+          .update(subscriptions)
+          .set({
+            status: "active",
+            currentPeriodStart: now.toISOString(),
+            currentPeriodEnd: end.toISOString(),
+            updatedAt: now.toISOString(),
+          })
+          .where(eq(subscriptions.id, existing.id));
+      } else {
+        await db.insert(subscriptions).values({
+          userId: payment.userId,
+          type: "fighter_monthly",
           status: "active",
           currentPeriodStart: now.toISOString(),
           currentPeriodEnd: end.toISOString(),

@@ -48,17 +48,25 @@ export async function hydrateFighters(userRows: any[]) {
     if (!tokenByUser.has(t.userId)) tokenByUser.set(t.userId, t.token);
   }
 
-  const proPayments = await db
-    .select({ userId: payments.userId })
-    .from(payments)
+  const fighterSubs = await db
+    .select()
+    .from(subscriptions)
     .where(
       and(
-        inArray(payments.userId, userIds),
-        eq(payments.type, "fighter_pro"),
-        eq(payments.status, "paid")
+        inArray(subscriptions.userId, userIds),
+        eq(subscriptions.type, "fighter_monthly"),
+        eq(subscriptions.status, "active")
       )
     );
-  const proUsers = new Set(proPayments.map((p) => p.userId));
+  const now = Date.now();
+  const subEndByUser = new Map<string, string | null>();
+  for (const s of fighterSubs) {
+    const end = s.currentPeriodEnd ? new Date(s.currentPeriodEnd).getTime() : null;
+    if (end !== null && end <= now) continue;
+    if (!subEndByUser.has(s.userId)) {
+      subEndByUser.set(s.userId, s.currentPeriodEnd ?? null);
+    }
+  }
 
   return rows.map((user) => {
     const profile = profileByUser.get(user.id) ?? null;
@@ -67,7 +75,8 @@ export async function hydrateFighters(userRows: any[]) {
       profile,
       disciplines: profile ? discByProfile.get(profile.id) ?? [] : [],
       pushToken: tokenByUser.get(user.id) ?? null,
-      isPro: proUsers.has(user.id),
+      isPro: subEndByUser.has(user.id),
+      subscriptionUntil: subEndByUser.get(user.id) ?? null,
     });
   });
 }
@@ -132,8 +141,15 @@ export async function hydrateGyms(gymRows: any[]) {
     .where(inArray(subscriptions.gymId, gymIds))
     .orderBy(desc(subscriptions.createdAt));
   const activeSubByGym = new Map<string, any>();
+  const now = Date.now();
   for (const s of gymSubs) {
-    if (s.gymId && s.status === "active" && !activeSubByGym.has(s.gymId)) {
+    const end = s.currentPeriodEnd ? new Date(s.currentPeriodEnd).getTime() : null;
+    if (
+      s.gymId &&
+      s.status === "active" &&
+      (end === null || end > now) &&
+      !activeSubByGym.has(s.gymId)
+    ) {
       activeSubByGym.set(s.gymId, s);
     }
   }

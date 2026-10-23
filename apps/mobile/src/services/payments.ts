@@ -1,38 +1,48 @@
 import { API_URL } from "./config";
+import { getToken } from "../store/session";
+import { checkout } from "./razorpay";
+import type { OrderInfo } from "./razorpay";
 
-const PRO_PRICE = 100;
+export const MEMBERSHIP_PRICE = 99;
 
-export async function upgradeToPro(fighterId: string): Promise<{ success: boolean; error?: string }> {
+async function authedPost<T>(path: string, body: unknown): Promise<T> {
+  const token = await getToken();
+  const response = await fetch(`${API_URL}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error ?? "Request failed");
+  return data as T;
+}
+
+export async function subscribeToMembership(): Promise<{ success: boolean; error?: string }> {
   try {
-    const orderRes = await fetch(`${API_URL}/api/payments/pro/order`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fighterId }),
-    });
-    const orderData = await orderRes.json();
-    if (!orderRes.ok) return { success: false, error: orderData.error ?? "Could not start payment" };
-
-    const order = orderData.order;
-    if (!order?.mock) {
-      return { success: false, error: "In-app checkout not configured for live keys." };
-    }
+    const { order } = await authedPost<{ order: OrderInfo }>(
+      "/api/payments/fighter/subscription/order",
+      {}
+    );
+    const payment = await checkout(order, `FightFind membership (₹${MEMBERSHIP_PRICE}/month)`);
 
     const verifyRes = await fetch(`${API_URL}/api/payments/verify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         orderId: order.id,
-        paymentId: `pay_mock_${Date.now()}`,
-        signature: "mock_signature",
+        paymentId: payment.paymentId,
+        signature: payment.signature,
       }),
     });
     const verifyData = await verifyRes.json();
-    if (!verifyRes.ok) return { success: false, error: verifyData.error ?? "Payment verification failed" };
-
+    if (!verifyRes.ok) {
+      return { success: false, error: verifyData.error ?? "Payment verification failed" };
+    }
     return { success: true };
-  } catch {
-    return { success: false, error: "Could not connect to server" };
+  } catch (err: any) {
+    return { success: false, error: err?.message ?? "Payment failed" };
   }
 }
-
-export { PRO_PRICE };

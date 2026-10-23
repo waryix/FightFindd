@@ -3,7 +3,7 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { getSession, clearSession, isGuestSession } from "../../src/store/session";
 import { API_URL } from "../../src/services/config";
-import { upgradeToPro, PRO_PRICE } from "../../src/services/payments";
+import { subscribeToMembership, MEMBERSHIP_PRICE } from "../../src/services/payments";
 import Avatar from "../../src/components/Avatar";
 import { useWebPullToRefresh } from "../../src/store/pullToRefresh";
 
@@ -52,12 +52,12 @@ export default function ProfileScreen() {
     if (!fighterId) return;
     setUpgrading(true);
     setProMsg("");
-    const result = await upgradeToPro(fighterId);
+    const result = await subscribeToMembership();
     if (result.success) {
-      setProMsg("You're now a Pro member!");
-      await loadProfile();
+      setProMsg("Membership active! Enjoy unlimited matches.");
+      await loadProfile(true);
     } else {
-      setProMsg(result.error ?? "Upgrade failed");
+      setProMsg(result.error ?? "Payment failed");
     }
     setUpgrading(false);
   };
@@ -155,17 +155,22 @@ export default function ProfileScreen() {
         <>
           <View style={styles.proCard}>
             <View style={styles.proHeader}>
-              <Text style={styles.proTitle}>FightFind Pro</Text>
-              {fighter.is_pro ? <View style={styles.proBadge}><Text style={styles.proBadgeText}>PRO</Text></View> : null}
+              <Text style={styles.proTitle}>FightFind Membership</Text>
+              {fighter.is_pro ? <View style={styles.proBadge}><Text style={styles.proBadgeText}>MEMBER</Text></View> : null}
             </View>
             {fighter.is_pro ? (
-              <Text style={styles.proText}>You have Pro. Priority visibility and a Pro badge on your profile.</Text>
+              <Text style={styles.proText}>
+                You have unlimited sparring matches.
+                {fighter.subscription_until ? ` Active until ${new Date(fighter.subscription_until).toLocaleDateString("en-IN")}.` : ""}
+              </Text>
             ) : (
               <>
-                <Text style={styles.proText}>Stand out with a Pro badge and priority in search results.</Text>
+                <Text style={styles.proText}>
+                  Free accounts can send 3 match requests. Subscribe for ₹{MEMBERSHIP_PRICE}/month for unlimited matches.
+                </Text>
                 {proMsg ? <Text style={styles.proMsg}>{proMsg}</Text> : null}
                 <TouchableOpacity style={styles.proBtn} onPress={handleUpgrade} disabled={upgrading}>
-                  <Text style={styles.proBtnText}>{upgrading ? "Processing…" : `Upgrade to Pro · ₹${PRO_PRICE}`}</Text>
+                  <Text style={styles.proBtnText}>{upgrading ? "Processing…" : `Subscribe · ₹${MEMBERSHIP_PRICE}/month`}</Text>
                 </TouchableOpacity>
               </>
             )}
